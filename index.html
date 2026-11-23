@@ -1835,6 +1835,10 @@ function finish(success) {
       Math.max(save.best,score);
 
     persist();
+    // Submit the completed level's score to Supabase
+    if (currentUser) {
+      saveLeaderboardScore(score);
+    }
 
     $("resultIcon").textContent =
       stars===3 ? "🏆" :
