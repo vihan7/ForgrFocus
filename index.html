@@ -652,44 +652,59 @@ body.mission-mode .overlay {z-index:9999}
 /* =========================================
    SUPABASE SETUP
 ========================================= */
-async function saveLeaderboardScore(score) {
+async function saveLeaderboardScore(score, levelNumber) {
+
   if (!currentUser) {
-    console.log("Guest scores are not saved to the leaderboard.");
+    console.log("Guest scores are not saved.");
     return;
   }
 
+  const userId = currentUser.id;
+
   const anonymous = localStorage.getItem(
-    "focusforge-anonymous-" + currentUser.id
+    "focusforge-anonymous-" + userId
   ) === "true";
 
   try {
-    // Check the player's existing best score
-    const { data: existing, error: fetchError } = await supabaseClient
-      .from("leaderboard_entries")
-      .select("best_score")
-      .eq("user_id", currentUser.id)
-      .maybeSingle();
+
+    const { data: existing, error: fetchError } =
+      await supabaseClient
+        .from("leaderboard_entries")
+        .select("best_score, best_level")
+        .eq("user_id", userId)
+        .maybeSingle();
 
     if (fetchError) throw fetchError;
 
-    // Don't overwrite a higher score
-    if (existing && existing.best_score >= score) {
+    // Only replace the entry when the new score is higher.
+    if (existing && Number(existing.best_score) >= score) {
       return;
     }
 
-    // Save the new best score
-    const { error: saveError } = await supabaseClient
-      .from("leaderboard_entries")
-      .upsert({
-        user_id: currentUser.id,
-        username: currentUsername || "Player",
-        is_anonymous: anonymous,
-        best_score: score,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: "user_id"
-      });
+    const { error: saveError } =
+      await supabaseClient
+        .from("leaderboard_entries")
+        .upsert({
+          user_id: userId,
+          username: currentUsername || "Player",
+          is_anonymous: anonymous,
+          best_score: score,
+          best_level: levelNumber,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: "user_id"
+        });
 
+    if (saveError) throw saveError;
+
+    console.log("Leaderboard score and level saved!");
+
+  } catch (error) {
+
+    console.error("Could not save leaderboard score:", error);
+
+  }
+}
     if (saveError) throw saveError;
 
     console.log("Leaderboard score saved!");
@@ -866,16 +881,21 @@ async function loadLeaderboard() {
     return;
   }
 
-  leaderboardList.innerHTML = "Loading leaderboard...";
+  leaderboardList.textContent = "Loading leaderboard...";
   leaderboardStatus.textContent = "";
 
   leaderboardOverlay.classList.add("show");
+
+  anonymousToggle.checked =
+    localStorage.getItem(
+      "focusforge-anonymous-" + currentUser.id
+    ) === "true";
 
   try {
 
     const { data, error } = await supabaseClient
       .from("leaderboard_entries")
-      .select("username, is_anonymous, best_score")
+      .select("username, is_anonymous, best_score, best_level")
       .order("best_score", { ascending: false })
       .limit(50);
 
@@ -884,13 +904,98 @@ async function loadLeaderboard() {
     leaderboardList.innerHTML = "";
 
     if (!data || data.length === 0) {
-
-      leaderboardList.innerHTML =
-        "<p>No scores yet. Be the first to compete!</p>";
-
+      leaderboardList.textContent =
+        "No scores yet. Clear a level to add your score!";
       return;
     }
 
+    // Column headings
+    const heading = document.createElement("div");
+
+    heading.style.cssText = `
+      display:grid;
+      grid-template-columns:1fr 65px 85px;
+      gap:8px;
+      padding:10px;
+      color:var(--cyan);
+      font-size:.8rem;
+      font-weight:900;
+      border-bottom:1px solid var(--line);
+      margin-bottom:8px;
+    `;
+
+    heading.innerHTML = `
+      <span>PLAYER</span>
+      <span style="text-align:center">LEVEL</span>
+      <span style="text-align:right">SCORE</span>
+    `;
+
+    leaderboardList.appendChild(heading);
+
+    data.forEach((player, index) => {
+
+      const row = document.createElement("div");
+
+      row.style.cssText = `
+        display:grid;
+        grid-template-columns:1fr 65px 85px;
+        gap:8px;
+        align-items:center;
+        padding:13px 10px;
+        margin-bottom:8px;
+        border:1px solid rgba(255,255,255,.1);
+        border-radius:14px;
+        background:#101a31;
+      `;
+
+      const name = player.is_anonymous
+        ? "Anonymous Player"
+        : player.username;
+
+      const rank = index + 1;
+
+      const medal =
+        rank === 1 ? "🥇" :
+        rank === 2 ? "🥈" :
+        rank === 3 ? "🥉" :
+        "#" + rank;
+
+      const playerName = document.createElement("strong");
+      playerName.textContent = medal + " " + name;
+      playerName.style.overflowWrap = "anywhere";
+
+      const playerLevel = document.createElement("span");
+      playerLevel.textContent = player.best_level
+        ? "Level " + player.best_level
+        : "—";
+      playerLevel.style.textAlign = "center";
+      playerLevel.style.color = "var(--cyan)";
+      playerLevel.style.fontSize = ".85rem";
+
+      const playerScore = document.createElement("b");
+      playerScore.textContent = player.best_score + " pts";
+      playerScore.style.color = "var(--gold)";
+      playerScore.style.textAlign = "right";
+      playerScore.style.fontSize = ".85rem";
+
+      row.appendChild(playerName);
+      row.appendChild(playerLevel);
+      row.appendChild(playerScore);
+
+      leaderboardList.appendChild(row);
+
+    });
+
+  } catch (error) {
+
+    console.error("Leaderboard error:", error);
+
+    leaderboardList.textContent =
+      "Could not load leaderboard: " + error.message;
+
+  }
+
+}
     data.forEach((player, index) => {
 
       const row = document.createElement("div");
@@ -1835,10 +1940,10 @@ function finish(success) {
       Math.max(save.best,score);
 
     persist();
-    // Submit the completed level's score to Supabase
-    if (currentUser) {
-      saveLeaderboardScore(score);
-    }
+    // Submit the completed level's score to Supabaseif(currentUser){
+  const globalLevel = (wi * 5) + li + 1;
+  saveLeaderboardScore(score, globalLevel);
+}
 
     $("resultIcon").textContent =
       stars===3 ? "🏆" :
