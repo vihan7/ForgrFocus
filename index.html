@@ -652,7 +652,51 @@ body.mission-mode .overlay {z-index:9999}
 /* =========================================
    SUPABASE SETUP
 ========================================= */
+async function saveLeaderboardScore(score) {
+  if (!currentUser) {
+    console.log("Guest scores are not saved to the leaderboard.");
+    return;
+  }
 
+  const anonymous = localStorage.getItem(
+    "focusforge-anonymous-" + currentUser.id
+  ) === "true";
+
+  try {
+    // Check the player's existing best score
+    const { data: existing, error: fetchError } = await supabaseClient
+      .from("leaderboard_entries")
+      .select("best_score")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    // Don't overwrite a higher score
+    if (existing && existing.best_score >= score) {
+      return;
+    }
+
+    // Save the new best score
+    const { error: saveError } = await supabaseClient
+      .from("leaderboard_entries")
+      .upsert({
+        user_id: currentUser.id,
+        username: currentUsername || "Player",
+        is_anonymous: anonymous,
+        best_score: score,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: "user_id"
+      });
+
+    if (saveError) throw saveError;
+
+    console.log("Leaderboard score saved!");
+  } catch (error) {
+    console.error("Could not save leaderboard score:", error);
+  }
+}
 const SUPABASE_URL =
   "https://vrtwvzatlnymtuqvzevj.supabase.co";
 
