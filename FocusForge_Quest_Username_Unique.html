@@ -426,12 +426,25 @@ body.mission-mode .overlay {z-index:9999}
   <span class="badge">CAMPAIGN MODE</span>
 </header>
 
+<!-- ACCOUNT BAR -->
 <div class="account-bar">
   <span id="accountStatus">Playing as guest — World 1 is free.</span>
-  <button class="btn secondary" id="showAuth">Sign in / Create account</button>
-  <button class="btn secondary" id="logoutBtn" hidden>Log out</button>
+
+  <button class="btn secondary" id="showAuth">
+    Sign in / Create account
+  </button>
+
+  <!-- Only visible when logged in -->
+  <button class="btn primary" id="viewLeaderboard" hidden>
+    🏆 View Leaderboard
+  </button>
+
+  <button class="btn secondary" id="logoutBtn" hidden>
+    Log out
+  </button>
 </div>
 
+<!-- AUTHENTICATION PANEL -->
 <section class="auth-panel" id="authPanel">
   <h2>🔐 Player account</h2>
   <p>Sign in or create an account to unlock Worlds 2 and 3.</p>
@@ -440,12 +453,23 @@ body.mission-mode .overlay {z-index:9999}
     <span class="google-icon" aria-hidden="true">G</span>
     Continue with Google
   </button>
+
   <div class="auth-divider">OR USE EMAIL</div>
 
-  <input id="usernameInput" type="text" placeholder="Choose a username (for new accounts)" autocomplete="username" maxlength="20">
-  <input id="emailInput" type="email" placeholder="Email address" autocomplete="email">
-  <input id="passwordInput" type="password" placeholder="Password" autocomplete="current-password">
-  <p class="muted" style="margin: -4px 0 10px; font-size: 12px;">Usernames: 3–20 characters; letters, numbers, and underscores only. Leave username blank when logging in.</p>
+  <input id="usernameInput" type="text"
+    placeholder="Choose a username (for new accounts)"
+    autocomplete="username" maxlength="20">
+
+  <input id="emailInput" type="email"
+    placeholder="Email address" autocomplete="email">
+
+  <input id="passwordInput" type="password"
+    placeholder="Password" autocomplete="current-password">
+
+  <p class="muted" style="margin: -4px 0 10px; font-size: 12px;">
+    Usernames: 3–20 characters; letters, numbers, and underscores only.
+    Leave username blank when logging in.
+  </p>
 
   <div class="actions">
     <button class="btn primary" id="signupBtn">Create account</button>
@@ -453,15 +477,19 @@ body.mission-mode .overlay {z-index:9999}
     <button class="btn secondary" id="hideAuth">Close</button>
   </div>
 
-  <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+  <div class="auth-message" id="authMessage"
+    role="status" aria-live="polite"></div>
 </section>
 
 <div class="hero">
   <div>
     <h1 id="welcomeHeading">Ready, player one?</h1>
-    <p>Clear levels, earn stars, unlock new worlds.<br>
-    Every world adds a bigger challenge.</p>
+    <p>
+      Clear levels, earn stars, unlock new worlds.<br>
+      Every world adds a bigger challenge.
+    </p>
   </div>
+
   <div class="rank">
     <b id="rank">ROOKIE</b>
     <small>PLAYER RANK</small>
@@ -546,7 +574,10 @@ body.mission-mode .overlay {z-index:9999}
       </div>
     </div>
 
-    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="bar">
+      <div class="fill" id="fill"></div>
+    </div>
+
     <p class="muted" id="progressText" style="margin-top:8px">
       Clear levels to unlock more.
     </p>
@@ -554,7 +585,10 @@ body.mission-mode .overlay {z-index:9999}
 
   <section class="tip">
     <h3>🕹️ How to play</h3>
-    <p>Read the target rule. Select every tile matching BOTH the color and shape. Wrong picks cost 2 seconds. Finish before time runs out.</p>
+    <p>
+      Read the target rule. Select every tile matching BOTH the color
+      and shape. Wrong picks cost 2 seconds. Finish before time runs out.
+    </p>
   </section>
 
   <section class="tip">
@@ -564,10 +598,15 @@ body.mission-mode .overlay {z-index:9999}
 
   <section class="tip">
     <h3>🛠️ Maker mission</h3>
-    <p>This is an experiment, not a proven attention treatment. Later, you can test adaptive difficulty and compare results.</p>
+    <p>
+      This is an experiment, not a proven attention treatment.
+      Later, you can test adaptive difficulty and compare results.
+    </p>
   </section>
 
-  <button class="btn secondary" id="resetProgress">Reset campaign progress</button>
+  <button class="btn secondary" id="resetProgress">
+    Reset campaign progress
+  </button>
 
 </aside>
 </div>
@@ -579,11 +618,13 @@ body.mission-mode .overlay {z-index:9999}
 
 </main>
 
+<!-- RESULTS POPUP -->
 <div class="overlay" id="overlay" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="big" id="resultIcon">🏆</div>
     <h2 id="resultTitle">LEVEL CLEARED!</h2>
     <p id="resultText"></p>
+
     <div class="actions">
       <button class="btn primary" id="continue">Continue ➜</button>
       <button class="btn secondary" id="close">Level map</button>
@@ -592,14 +633,16 @@ body.mission-mode .overlay {z-index:9999}
 </div>
 
 <script>
+
 /* =========================================
    SUPABASE SETUP
 ========================================= */
 
-// Use your Supabase Project URL (without /rest/v1/).
-const SUPABASE_URL = "https://vrtwvzatlnymtuqvzevj.supabase.co";
-// A publishable/anon key is safe to use in browser code. Never put a service_role key here.
-const SUPABASE_KEY = "sb_publishable_oGGExMam7TwvMqYsLDbZww_ZQxM_raA";
+const SUPABASE_URL =
+  "https://vrtwvzatlnymtuqvzevj.supabase.co";
+
+const SUPABASE_KEY =
+  "sb_publishable_oGGExMam7TwvMqYsLDbZww_ZQxM_raA";
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
@@ -622,30 +665,62 @@ function hideAuth() {
   authPanel.classList.remove("show");
 }
 
+/* =========================================
+   ACCOUNT UI
+========================================= */
+
 function updateAccountUI() {
+
   const status = document.getElementById("accountStatus");
   const showButton = document.getElementById("showAuth");
   const logoutButton = document.getElementById("logoutBtn");
+  const leaderboardButton = document.getElementById("viewLeaderboard");
   const welcomeHeading = document.getElementById("welcomeHeading");
 
   if (currentUser) {
-    status.textContent = "Signed in as " + (currentUsername || "player") + " · " + currentUser.email;
-    welcomeHeading.textContent = currentUsername ? "Hello, " + currentUsername + "!" : "Welcome back!";
+
+    status.textContent =
+      "Signed in as " +
+      (currentUsername || "player") +
+      " · " +
+      currentUser.email;
+
+    welcomeHeading.textContent =
+      currentUsername
+        ? "Hello, " + currentUsername + "!"
+        : "Welcome back!";
+
     showButton.hidden = true;
     logoutButton.hidden = false;
+
+    // SHOW LEADERBOARD BUTTON WHEN LOGGED IN
+    leaderboardButton.hidden = false;
+
     hideAuth();
+
   } else {
-    status.textContent = "Playing as guest — World 1 is free.";
+
+    status.textContent =
+      "Playing as guest — World 1 is free.";
+
     welcomeHeading.textContent = "Ready, player one?";
+
     showButton.hidden = false;
     logoutButton.hidden = true;
+
+    // HIDE LEADERBOARD BUTTON WHEN LOGGED OUT
+    leaderboardButton.hidden = true;
   }
 
   if (typeof render === "function") render();
 }
 
-// Read the username saved in public.profiles for the signed-in account.
+/* =========================================
+   LOAD USERNAME
+========================================= */
+
 async function loadCurrentUsername(user) {
+
   if (!user) {
     currentUsername = null;
     updateAccountUI();
@@ -658,20 +733,29 @@ async function loadCurrentUsername(user) {
     .eq("id", user.id)
     .maybeSingle();
 
-  // Ignore an old request if the player has since signed out or changed accounts.
   if (!currentUser || currentUser.id !== user.id) return;
 
   if (error) {
     console.error("Could not load player profile:", error.message);
     currentUsername = user.user_metadata?.username || null;
   } else {
-    currentUsername = data?.username || user.user_metadata?.username || null;
+    currentUsername =
+      data?.username ||
+      user.user_metadata?.username ||
+      null;
   }
+
   updateAccountUI();
 }
 
+/* =========================================
+   CHECK SESSION
+========================================= */
+
 async function checkSession() {
-  const { data, error } = await supabaseClient.auth.getSession();
+
+  const { data, error } =
+    await supabaseClient.auth.getSession();
 
   if (error) {
     console.error(error.message);
@@ -680,109 +764,193 @@ async function checkSession() {
 
   currentUser = data.session?.user || null;
   currentUsername = null;
+
   updateAccountUI();
-  if (currentUser) await loadCurrentUsername(currentUser);
+
+  if (currentUser) {
+    await loadCurrentUsername(currentUser);
+  }
 }
 
+/* =========================================
+   AUTH BUTTONS
+========================================= */
+
 document.getElementById("showAuth").onclick = () => showAuth();
+
 document.getElementById("hideAuth").onclick = hideAuth;
 
-// Google sign-in and first-time Google signup use the same OAuth flow.
-// Supabase creates the user on the first successful Google sign-in.
+/* =========================================
+   LEADERBOARD BUTTON
+========================================= */
+
+// This button is visible only when logged in.
+// The actual leaderboard screen will be connected next.
+
+document.getElementById("viewLeaderboard").onclick = () => {
+
+  if (!currentUser) {
+    showAuth("Please log in to view the leaderboard.");
+    return;
+  }
+
+  alert("The leaderboard screen is coming soon!");
+
+};
+
+/* =========================================
+   GOOGLE SIGN IN
+========================================= */
+
 document.getElementById("googleBtn").onclick = async () => {
+
   const button = document.getElementById("googleBtn");
+
   button.disabled = true;
   authMessage.textContent = "Connecting to Google...";
 
-  // Return the player to this same game page after OAuth completes.
-  const redirectTo = window.location.origin + window.location.pathname;
+  const redirectTo =
+    window.location.origin + window.location.pathname;
 
   try {
+
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo }
     });
 
     if (error) {
-      authMessage.textContent = "Google sign-in failed: " + error.message;
+      authMessage.textContent =
+        "Google sign-in failed: " + error.message;
+
       button.disabled = false;
     }
+
   } catch (err) {
-    authMessage.textContent = "Google sign-in couldn't start. Please try again.";
+
+    authMessage.textContent =
+      "Google sign-in couldn't start. Please try again.";
+
     console.error("Google OAuth error:", err);
+
     button.disabled = false;
   }
 };
 
+/* =========================================
+   CREATE ACCOUNT
+========================================= */
+
 document.getElementById("signupBtn").onclick = async () => {
-  const username = document.getElementById("usernameInput").value.trim();
-  const email = document.getElementById("emailInput").value.trim();
-  const password = document.getElementById("passwordInput").value;
+
+  const username =
+    document.getElementById("usernameInput").value.trim();
+
+  const email =
+    document.getElementById("emailInput").value.trim();
+
+  const password =
+    document.getElementById("passwordInput").value;
 
   if (!username || !email || !password) {
-    authMessage.textContent = "Choose a username, then enter your email and password.";
+    authMessage.textContent =
+      "Choose a username, then enter your email and password.";
     return;
   }
 
   if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
-    authMessage.textContent = "Username must be 3–20 characters and use only letters, numbers, or underscores.";
+    authMessage.textContent =
+      "Username must be 3–20 characters and use only letters, numbers, or underscores.";
     return;
   }
 
   authMessage.textContent = "Creating your account...";
+
   document.getElementById("signupBtn").disabled = true;
 
   try {
-    const { data, error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: {
-        // The database's on_auth_user_created trigger uses this value
-        // when it creates the matching row in public.profiles.
-        data: { username }
-      }
-    });
+
+    const { data, error } =
+      await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username }
+        }
+      });
 
     if (error) {
+
       const message = error.message || "";
-      authMessage.textContent = /duplicate|unique|profiles_username_lower_key/i.test(message)
-        ? "That username is already taken. Please choose another one."
-        : message;
+
+      authMessage.textContent =
+        /duplicate|unique|profiles_username_lower_key/i.test(message)
+          ? "That username is already taken. Please choose another one."
+          : message;
+
       return;
     }
 
     if (data.session && data.user) {
+
       currentUser = data.user;
       currentUsername = username;
+
       updateAccountUI();
+
       await loadCurrentUsername(data.user);
-      authMessage.textContent = "Account created! Welcome, " + (currentUsername || username) + "!";
+
+      authMessage.textContent =
+        "Account created! Welcome, " +
+        (currentUsername || username) +
+        "!";
+
     } else {
-      authMessage.textContent = "Account created! Check your email for a confirmation link, then log in.";
+
+      authMessage.textContent =
+        "Account created! Check your email for a confirmation link, then log in.";
+
     }
+
   } catch (err) {
+
     console.error("Signup error:", err);
-    authMessage.textContent = "Signup failed. Please try again.";
+
+    authMessage.textContent =
+      "Signup failed. Please try again.";
+
   } finally {
+
     document.getElementById("signupBtn").disabled = false;
+
   }
 };
 
+/* =========================================
+   LOG IN
+========================================= */
+
 document.getElementById("loginBtn").onclick = async () => {
-  const email = document.getElementById("emailInput").value.trim();
-  const password = document.getElementById("passwordInput").value;
+
+  const email =
+    document.getElementById("emailInput").value.trim();
+
+  const password =
+    document.getElementById("passwordInput").value;
 
   if (!email || !password) {
-    authMessage.textContent = "Enter an email and password first.";
+    authMessage.textContent =
+      "Enter an email and password first.";
     return;
   }
 
   authMessage.textContent = "Logging in...";
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { data, error } =
+    await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
 
   if (error) {
     authMessage.textContent = error.message;
@@ -791,12 +959,23 @@ document.getElementById("loginBtn").onclick = async () => {
 
   currentUser = data.user;
   currentUsername = null;
+
   updateAccountUI();
+
   await loadCurrentUsername(data.user);
-  authMessage.textContent = "Successfully signed in" + (currentUsername ? ", " + currentUsername : "") + "!";
+
+  authMessage.textContent =
+    "Successfully signed in" +
+    (currentUsername ? ", " + currentUsername : "") +
+    "!";
 };
 
+/* =========================================
+   LOG OUT
+========================================= */
+
 document.getElementById("logoutBtn").onclick = async () => {
+
   const { error } = await supabaseClient.auth.signOut();
 
   if (error) {
@@ -806,19 +985,31 @@ document.getElementById("logoutBtn").onclick = async () => {
 
   currentUser = null;
   currentUsername = null;
+
   updateAccountUI();
+
   showAuth("You have logged out.");
 };
 
+/* =========================================
+   AUTH STATE CHANGES
+========================================= */
+
 supabaseClient.auth.onAuthStateChange((_event, session) => {
+
   currentUser = session?.user || null;
   currentUsername = null;
+
   updateAccountUI();
+
   if (currentUser) {
-    // Defer the profile request so it does not run inside Supabase's auth callback.
+
     const user = currentUser;
+
     setTimeout(() => loadCurrentUsername(user), 0);
+
   }
+
 });
 
 /* =========================================
@@ -882,23 +1073,45 @@ const worlds = [
 ];
 
 const $ = id => document.getElementById(id);
+
 const key = (w,l) => w+"-"+l;
 
-let save = {cleared:{},stars:{},best:0};
+let save = {
+  cleared:{},
+  stars:{},
+  best:0
+};
 
 try {
-  const v = JSON.parse(localStorage.getItem("focusforge-quest-v1"));
+
+  const v = JSON.parse(
+    localStorage.getItem("focusforge-quest-v1")
+  );
+
   if(v && v.cleared && v.stars) save = v;
+
 } catch(e) {}
 
-let wi=0, li=0, active=false, timer=null, timeLeft=0,
-score=0, attempts=0, correct=0, tiles=[], targets=[],
-selected=new Set(), puzzleDone=false, won=false;
+let wi=0,
+    li=0,
+    active=false,
+    timer=null,
+    timeLeft=0,
+    score=0,
+    attempts=0,
+    correct=0,
+    tiles=[],
+    targets=[],
+    selected=new Set(),
+    puzzleDone=false,
+    won=false;
 
-const cleared = (w,l) => !!save.cleared[key(w,l)];
+const cleared = (w,l) =>
+  !!save.cleared[key(w,l)];
 
 const worldProgressUnlocked = w =>
-  w===0 || cleared(w-1,worlds[w-1].levels.length-1);
+  w===0 ||
+  cleared(w-1,worlds[w-1].levels.length-1);
 
 const unlocked = (w,l) =>
   w===0 && l===0 ? true :
@@ -911,420 +1124,772 @@ const clearedTotal = () =>
 const starTotal = () =>
   Object.values(save.stars).reduce((a,b)=>a+b,0);
 
+/* =========================================
+   SAVE PROGRESS
+========================================= */
+
 function persist() {
+
   try {
-    localStorage.setItem("focusforge-quest-v1",JSON.stringify(save));
+
+    localStorage.setItem(
+      "focusforge-quest-v1",
+      JSON.stringify(save)
+    );
+
   } catch(e) {}
+
 }
+
+/* =========================================
+   PLAYER STATS
+========================================= */
 
 function stats() {
-  const st=starTotal(),ct=clearedTotal();
 
-  $("stars").textContent=st+" / 45";
-  $("best").textContent=save.best;
-  $("clearedCount").textContent=ct+" / 15 cleared";
-  $("fill").style.width=(ct/15*100)+"%";
-  $("progressText").textContent=ct===15?
-    "Campaign complete!":(15-ct)+" levels left";
+  const st = starTotal();
+  const ct = clearedTotal();
 
-  $("rank").textContent=st>=35?"FOCUS LEGEND":
-    st>=22?"MASTERMIND":
-    st>=10?"RISING STAR":"ROOKIE";
+  $("stars").textContent = st + " / 45";
 
-  $("accuracy").textContent=attempts?
-    Math.round(correct/attempts*100)+"%":"—";
+  $("best").textContent = save.best;
 
-  $("time").textContent=active?timeLeft+"s":"—";
+  $("clearedCount").textContent =
+    ct + " / 15 cleared";
+
+  $("fill").style.width =
+    (ct/15*100) + "%";
+
+  $("progressText").textContent =
+    ct===15
+      ? "Campaign complete!"
+      : (15-ct) + " levels left";
+
+  $("rank").textContent =
+    st>=35 ? "FOCUS LEGEND" :
+    st>=22 ? "MASTERMIND" :
+    st>=10 ? "RISING STAR" :
+    "ROOKIE";
+
+  $("accuracy").textContent =
+    attempts
+      ? Math.round(correct/attempts*100) + "%"
+      : "—";
+
+  $("time").textContent =
+    active ? timeLeft+"s" : "—";
+
 }
 
+/* =========================================
+   STOP CURRENT GAME
+========================================= */
+
 function stop() {
+
   active=false;
+
   clearInterval(timer);
+
   timer=null;
   timeLeft=0;
   score=0;
   attempts=0;
   correct=0;
+
   tiles=[];
   targets=[];
   selected=new Set();
+
   puzzleDone=false;
   won=false;
+
 }
 
+/* =========================================
+   DRAW WORLDS
+========================================= */
+
 function drawWorlds() {
-  const el=$("worlds");
-  el.innerHTML="";
+
+  const el = $("worlds");
+
+  el.innerHTML = "";
 
   worlds.forEach((w,i)=>{
-    const b=document.createElement("button");
 
-    b.className="world"+(wi===i?" active":"")+
-      (w.levels.every((_,l)=>cleared(i,l))?" complete":"");
+    const b = document.createElement("button");
 
-    // Worlds 2 and 3 require login.
-    // They also require the previous world to be cleared.
-    b.disabled=!worldProgressUnlocked(i);
+    b.className =
+      "world" +
+      (wi===i ? " active" : "") +
+      (w.levels.every((_,l)=>cleared(i,l))
+        ? " complete"
+        : "");
 
-    b.innerHTML=`<span class="emoji">${w.icon}</span>
+    b.disabled = !worldProgressUnlocked(i);
+
+    b.innerHTML = `
+      <span class="emoji">${w.icon}</span>
       <strong>${w.name}</strong>
-      <small>${w.desc}</small>`;
+      <small>${w.desc}</small>
+    `;
 
-    b.onclick=()=>{
+    b.onclick = ()=>{
+
       if(i>0 && !currentUser) {
-        showAuth("Create an account or log in to access this world.");
+
+        showAuth(
+          "Create an account or log in to access this world."
+        );
+
         return;
       }
 
       wi=i;
       li=0;
+
       stop();
+
       render();
+
     };
 
     el.appendChild(b);
+
   });
+
 }
+
+/* =========================================
+   DRAW LEVELS
+========================================= */
 
 function drawLevels() {
-  const el=$("levels");
-  el.innerHTML="";
+
+  const el = $("levels");
+
+  el.innerHTML = "";
 
   worlds[wi].levels.forEach((lv,i)=>{
-    const b=document.createElement("button");
 
-    b.className="level"+(li===i?" active":"");
-    b.disabled=!unlocked(wi,i);
+    const b = document.createElement("button");
 
-    b.innerHTML=`${b.disabled?"🔒":i+1}
-      <small>${"★".repeat(save.stars[key(wi,i)]||0)}
-      ${"☆".repeat(3-(save.stars[key(wi,i)]||0))}</small>`;
+    b.className =
+      "level" +
+      (li===i ? " active" : "");
 
-    b.onclick=()=>{
+    b.disabled = !unlocked(wi,i);
+
+    b.innerHTML = `
+      ${b.disabled ? "🔒" : i+1}
+      <small>
+        ${"★".repeat(save.stars[key(wi,i)]||0)}
+        ${"☆".repeat(3-(save.stars[key(wi,i)]||0))}
+      </small>
+    `;
+
+    b.onclick = ()=>{
+
       li=i;
+
       stop();
+
       render();
+
     };
 
     el.appendChild(b);
+
   });
+
 }
 
+/* =========================================
+   RENDER GAME
+========================================= */
+
 function render() {
+
   drawWorlds();
+
   drawLevels();
+
   stats();
 
-  const w=worlds[wi],lv=w.levels[li];
+  const w = worlds[wi];
+  const lv = w.levels[li];
 
-  $("chapter").textContent=`WORLD ${wi+1} · LEVEL ${li+1}`;
-  $("missionTitle").textContent=lv[0];
-  $("missionDesc").textContent=lv[1];
-  $("worldIcon").textContent=w.icon;
+  $("chapter").textContent =
+    `WORLD ${wi+1} · LEVEL ${li+1}`;
 
-  $("tip").textContent=[
+  $("missionTitle").textContent = lv[0];
+
+  $("missionDesc").textContent = lv[1];
+
+  $("worldIcon").textContent = w.icon;
+
+  $("tip").textContent = [
     "Check both the color and shape before tapping.",
     "Scan the board carefully; lookalikes are distractions.",
     "Use a steady scan pattern and prioritize accuracy."
   ][wi];
 
   if(!active) {
-    $("ruleText").textContent="Ready for your mission?";
-    $("symbol").textContent="✦";
-    $("symbol").style.color="var(--gold)";
-    $("grid").innerHTML="";
-    $("grid").style.gridTemplateColumns="repeat(4,1fr)";
 
-    $("status").textContent=unlocked(wi,li)?
-      "Press Start level when you are ready.":
-      "Clear the previous level to unlock this one.";
+    $("ruleText").textContent =
+      "Ready for your mission?";
 
-    $("start").disabled=!unlocked(wi,li);
-    $("start").textContent=cleared(wi,li)?
-      "↻ Replay level":"▶ Start level";
+    $("symbol").textContent = "✦";
+
+    $("symbol").style.color = "var(--gold)";
+
+    $("grid").innerHTML = "";
+
+    $("grid").style.gridTemplateColumns =
+      "repeat(4,1fr)";
+
+    $("status").textContent =
+      unlocked(wi,li)
+        ? "Press Start level when you are ready."
+        : "Clear the previous level to unlock this one.";
+
+    $("start").disabled = !unlocked(wi,li);
+
+    $("start").textContent =
+      cleared(wi,li)
+        ? "↻ Replay level"
+        : "▶ Start level";
+
   }
+
 }
 
+/* =========================================
+   GENERATE PUZZLE
+========================================= */
+
 function puzzle() {
+
   if(!active) return;
 
-  selected=new Set();
-  puzzleDone=false;
+  selected = new Set();
 
-  const lv=worlds[wi].levels[li];
+  puzzleDone = false;
 
-  const target={
+  const lv = worlds[wi].levels[li];
+
+  const target = {
     color:colors[Math.random()*colors.length|0],
     shape:shapes[Math.random()*shapes.length|0]
   };
 
-  $("ruleText").textContent=
-    "Find every "+target.color.name+" "+target.shape.name;
+  $("ruleText").textContent =
+    "Find every " +
+    target.color.name +
+    " " +
+    target.shape.name;
 
-  $("symbol").textContent=target.shape.glyph;
-  $("symbol").style.color=target.color.hex;
+  $("symbol").textContent =
+    target.shape.glyph;
+
+  $("symbol").style.color =
+    target.color.hex;
 
   tiles=[];
 
-  for(let i=0;i<lv[4];i++)
-    tiles.push({...target,match:true});
+  for(let i=0;i<lv[4];i++) {
+
+    tiles.push({
+      ...target,
+      match:true
+    });
+
+  }
 
   while(tiles.length<lv[3]) {
-    const c=colors[Math.random()*colors.length|0];
-    const s=shapes[Math.random()*shapes.length|0];
 
-    if(c.name===target.color.name &&
-       s.name===target.shape.name) continue;
+    const c =
+      colors[Math.random()*colors.length|0];
 
-    tiles.push({color:c,shape:s,match:false});
+    const s =
+      shapes[Math.random()*shapes.length|0];
+
+    if(
+      c.name===target.color.name &&
+      s.name===target.shape.name
+    ) continue;
+
+    tiles.push({
+      color:c,
+      shape:s,
+      match:false
+    });
+
   }
 
   for(let i=tiles.length-1;i>0;i--) {
-    const j=Math.random()*(i+1)|0;
-    [tiles[i],tiles[j]]=[tiles[j],tiles[i]];
+
+    const j = Math.random()*(i+1)|0;
+
+    [tiles[i],tiles[j]] =
+      [tiles[j],tiles[i]];
+
   }
 
-  targets=tiles.map((t,i)=>t.match?i:-1).filter(i=>i>=0);
+  targets = tiles
+    .map((t,i)=>t.match?i:-1)
+    .filter(i=>i>=0);
 
-  const g=$("grid");
-  g.innerHTML="";
-  g.style.gridTemplateColumns=
+  const g = $("grid");
+
+  g.innerHTML = "";
+
+  g.style.gridTemplateColumns =
     `repeat(${lv[3]<=9?3:4},minmax(0,1fr))`;
 
   tiles.forEach((t,i)=>{
-    const b=document.createElement("button");
-    b.className="tile";
-    b.setAttribute("aria-label",t.color.name+" "+t.shape.name);
-    b.innerHTML=`<span style="color:${t.color.hex}">${t.shape.glyph}</span>`;
-    b.onclick=()=>choose(i,b);
+
+    const b = document.createElement("button");
+
+    b.className = "tile";
+
+    b.setAttribute(
+      "aria-label",
+      t.color.name+" "+t.shape.name
+    );
+
+    b.innerHTML = `
+      <span style="color:${t.color.hex}">
+        ${t.shape.glyph}
+      </span>
+    `;
+
+    b.onclick = ()=>choose(i,b);
+
     g.appendChild(b);
+
   });
 
-  $("status").textContent="Find all "+lv[4]+" targets!";
-  $("status").className="status";
+  $("status").textContent =
+    "Find all " + lv[4] + " targets!";
+
+  $("status").className = "status";
+
   stats();
+
 }
 
+/* =========================================
+   SELECT TILE
+========================================= */
+
 function choose(i,b) {
+
   if(!active || puzzleDone || selected.has(i)) return;
 
   selected.add(i);
+
   attempts++;
 
   if(tiles[i].match) {
+
     correct++;
+
     score+=100;
-    b.className="tile correct";
-    b.textContent="✓";
+
+    b.className = "tile correct";
+
+    b.textContent = "✓";
+
   } else {
-    score=Math.max(0,score-25);
-    timeLeft=Math.max(0,timeLeft-2);
-    b.className="tile wrong";
-    b.textContent="×";
+
+    score = Math.max(0,score-25);
+
+    timeLeft = Math.max(0,timeLeft-2);
+
+    b.className = "tile wrong";
+
+    b.textContent = "×";
+
   }
 
-  b.disabled=true;
+  b.disabled = true;
+
   stats();
 
-  const remaining=targets.filter(j=>!selected.has(j)).length;
+  const remaining =
+    targets.filter(j=>!selected.has(j)).length;
 
   if(!remaining) {
-    puzzleDone=true;
-    [...$("grid").children].forEach(x=>x.disabled=true);
-    finish(true);
-  } else {
-    $("status").textContent=tiles[i].match?
-      remaining+" target(s) remaining.":
-      "Not a match — check color and shape.";
 
-    $("status").className=tiles[i].match?
-      "status":"status bad";
+    puzzleDone=true;
+
+    [...$("grid").children].forEach(x=>{
+      x.disabled=true;
+    });
+
+    finish(true);
+
+  } else {
+
+    $("status").textContent =
+      tiles[i].match
+        ? remaining+" target(s) remaining."
+        : "Not a match — check color and shape.";
+
+    $("status").className =
+      tiles[i].match
+        ? "status"
+        : "status bad";
+
   }
 
   if(timeLeft<=0) finish(false);
+
 }
 
+/* =========================================
+   MISSION MODE
+========================================= */
+
 function enterMissionMode() {
+
   document.body.classList.add("mission-mode");
-  $("restart").textContent="↩ Exit mission";
+
+  $("restart").textContent =
+    "↩ Exit mission";
 
   if(document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(()=>{});
+
+    document.documentElement
+      .requestFullscreen()
+      .catch(()=>{});
+
   }
+
 }
 
 function exitMissionMode() {
-  document.body.classList.remove("mission-mode");
-  $("restart").textContent="↩ Level map";
 
-  if(document.fullscreenElement && document.exitFullscreen) {
+  document.body.classList.remove("mission-mode");
+
+  $("restart").textContent =
+    "↩ Level map";
+
+  if(
+    document.fullscreenElement &&
+    document.exitFullscreen
+  ) {
+
     document.exitFullscreen().catch(()=>{});
+
   }
+
 }
 
+/* =========================================
+   START LEVEL
+========================================= */
+
 function start() {
-  // Final check before starting a level in a paid/locked world.
+
   if(wi>0 && !currentUser) {
-    showAuth("Log in to play Worlds 2 and 3.");
+
+    showAuth(
+      "Log in to play Worlds 2 and 3."
+    );
+
     return;
+
   }
 
   enterMissionMode();
+
   stop();
+
   active=true;
 
-  const lv=worlds[wi].levels[li];
+  const lv = worlds[wi].levels[li];
+
   timeLeft=lv[2];
 
   $("start").disabled=true;
-  $("start").textContent="Mission in progress…";
+
+  $("start").textContent =
+    "Mission in progress…";
 
   puzzle();
 
-  timer=setInterval(()=>{
+  timer = setInterval(()=>{
+
     timeLeft--;
+
     stats();
+
     if(timeLeft<=0) finish(false);
+
   },1000);
+
 }
 
+/* =========================================
+   FINISH LEVEL
+========================================= */
+
 function finish(success) {
+
   if(!active) return;
 
   active=false;
+
   clearInterval(timer);
+
   timer=null;
 
-  [...$("grid").children].forEach(x=>x.disabled=true);
+  [...$("grid").children].forEach(x=>{
+    x.disabled=true;
+  });
 
   won=success;
+
   $("start").disabled=false;
 
-  const acc=attempts?correct/attempts:0;
+  const acc =
+    attempts ? correct/attempts : 0;
 
   if(success) {
-    const stars=
-      timeLeft>=worlds[wi].levels[li][2]*.45 && acc>=.85?3:
-      acc>=.65?2:1;
+
+    const stars =
+      timeLeft>=worlds[wi].levels[li][2]*.45 &&
+      acc>=.85 ? 3 :
+      acc>=.65 ? 2 :
+      1;
 
     save.cleared[key(wi,li)]=true;
-    save.stars[key(wi,li)]=Math.max(
-      save.stars[key(wi,li)]||0,stars
-    );
 
-    save.best=Math.max(save.best,score);
+    save.stars[key(wi,li)] =
+      Math.max(
+        save.stars[key(wi,li)]||0,
+        stars
+      );
+
+    save.best =
+      Math.max(save.best,score);
+
     persist();
 
-    $("resultIcon").textContent=
-      stars===3?"🏆":stars===2?"🌟":"⭐";
+    $("resultIcon").textContent =
+      stars===3 ? "🏆" :
+      stars===2 ? "🌟" :
+      "⭐";
 
-    $("resultTitle").textContent="LEVEL CLEARED!";
+    $("resultTitle").textContent =
+      "LEVEL CLEARED!";
 
-    $("resultText").textContent=
+    $("resultText").textContent =
       `You earned ${stars} star(s), scored ${score}, and had ${Math.round(acc*100)}% accuracy. Your progress is saved.`;
 
-    $("continue").textContent=
-      hasNext()?"Next level ➜":"Campaign complete";
+    $("continue").textContent =
+      hasNext()
+        ? "Next level ➜"
+        : "Campaign complete";
 
-    $("status").textContent="Level cleared! Star rating saved.";
-    $("status").className="status good";
+    $("status").textContent =
+      "Level cleared! Star rating saved.";
+
+    $("status").className =
+      "status good";
 
   } else {
-    $("resultIcon").textContent="⏱️";
-    $("resultTitle").textContent="TIME UP!";
 
-    $("resultText").textContent=
+    $("resultIcon").textContent = "⏱️";
+
+    $("resultTitle").textContent =
+      "TIME UP!";
+
+    $("resultText").textContent =
       `You scored ${score} with ${attempts?Math.round(acc*100):0}% accuracy. Retry and see if you can clear the level.`;
 
-    $("continue").textContent="Retry level";
-    $("status").textContent="Time ran out. Try the level again.";
-    $("status").className="status bad";
+    $("continue").textContent =
+      "Retry level";
+
+    $("status").textContent =
+      "Time ran out. Try the level again.";
+
+    $("status").className =
+      "status bad";
+
   }
 
   stats();
+
   $("overlay").classList.add("show");
+
 }
+
+/* =========================================
+   CHECK NEXT LEVEL
+========================================= */
 
 function hasNext() {
+
   return li<4 || wi<2;
+
 }
 
+/* =========================================
+   CONTINUE GAME
+========================================= */
+
 function continueGame() {
+
   $("overlay").classList.remove("show");
 
   if(!won) {
+
     start();
+
     return;
+
   }
 
-  if(li<4) li++;
-  else if(wi<2) {
+  if(li<4) {
+
+    li++;
+
+  } else if(wi<2) {
+
     wi++;
+
     li=0;
+
   } else {
+
     stop();
+
     exitMissionMode();
+
     render();
+
     return;
+
   }
 
-  // Do not automatically enter a locked world without login.
   if(wi>0 && !currentUser) {
+
     wi=0;
+
     li=4;
+
     stop();
+
     exitMissionMode();
+
     render();
-    showAuth("Log in to continue into the next world.");
+
+    showAuth(
+      "Log in to continue into the next world."
+    );
+
     return;
+
   }
 
   stop();
+
   render();
+
 }
 
-$("start").onclick=start;
+/* =========================================
+   BUTTON EVENTS
+========================================= */
 
-$("restart").onclick=()=>{
+$("start").onclick = start;
+
+$("restart").onclick = ()=>{
+
   stop();
+
   exitMissionMode();
+
   render();
+
 };
 
-$("continue").onclick=continueGame;
+$("continue").onclick = continueGame;
 
-$("close").onclick=()=>{
+$("close").onclick = ()=>{
+
   $("overlay").classList.remove("show");
+
   stop();
+
   exitMissionMode();
+
   render();
+
 };
 
-$("overlay").onclick=e=>{
+$("overlay").onclick = e=>{
+
   if(e.target===$("overlay")) {
+
     $("overlay").classList.remove("show");
+
     stop();
+
     exitMissionMode();
+
     render();
+
   }
+
 };
 
-$("resetProgress").onclick=()=>{
-  if(confirm("Reset all unlocked levels and stars on this browser?")) {
-    save={cleared:{},stars:{},best:0};
+/* =========================================
+   RESET PROGRESS
+========================================= */
+
+$("resetProgress").onclick = ()=>{
+
+  if(
+    confirm(
+      "Reset all unlocked levels and stars on this browser?"
+    )
+  ) {
+
+    save={
+      cleared:{},
+      stars:{},
+      best:0
+    };
+
     persist();
+
     wi=0;
+
     li=0;
+
     stop();
+
     render();
+
   }
+
 };
+
+/* =========================================
+   INITIALIZE GAME
+========================================= */
 
 render();
 
 })(); // End game
 
 checkSession();
+
 </script>
 
 </body>
