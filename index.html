@@ -619,16 +619,31 @@ body.mission-mode .overlay {z-index:9999}
 </main>
 
 <!-- RESULTS POPUP -->
-<div class="overlay" id="overlay" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="big" id="resultIcon">🏆</div>
-    <h2 id="resultTitle">LEVEL CLEARED!</h2>
-    <p id="resultText"></p>
+<!-- LEADERBOARD WINDOW -->
+<div class="overlay" id="leaderboardOverlay">
+  <div class="modal" style="width:min(550px,100%);">
 
-    <div class="actions">
-      <button class="btn primary" id="continue">Continue ➜</button>
-      <button class="btn secondary" id="close">Level map</button>
+    <div class="big">🏆</div>
+    <h2>Global Leaderboard</h2>
+    <p>See how you compare with other FocusForge players!</p>
+
+    <div style="display:flex;justify-content:space-between;margin:18px 0;">
+      <button class="btn secondary" id="refreshLeaderboard">
+        ↻ Refresh
+      </button>
+
+      <button class="btn secondary" id="closeLeaderboard">
+        ✕ Close
+      </button>
     </div>
+
+    <div id="leaderboardList"
+      style="max-height:350px;overflow-y:auto;text-align:left;">
+      Loading leaderboard...
+    </div>
+
+    <div class="status" id="leaderboardStatus"></div>
+
   </div>
 </div>
 
@@ -786,16 +801,114 @@ document.getElementById("hideAuth").onclick = hideAuth;
 
 // This button is visible only when logged in.
 // The actual leaderboard screen will be connected next.
+/* =========================================
+   GLOBAL LEADERBOARD
+========================================= */
 
-document.getElementById("viewLeaderboard").onclick = () => {
+const leaderboardOverlay =
+  document.getElementById("leaderboardOverlay");
+
+const leaderboardList =
+  document.getElementById("leaderboardList");
+
+const leaderboardStatus =
+  document.getElementById("leaderboardStatus");
+
+
+async function loadLeaderboard() {
 
   if (!currentUser) {
     showAuth("Please log in to view the leaderboard.");
     return;
   }
 
-  alert("The leaderboard screen is coming soon!");
+  leaderboardList.innerHTML = "Loading leaderboard...";
+  leaderboardStatus.textContent = "";
 
+  leaderboardOverlay.classList.add("show");
+
+  try {
+
+    const { data, error } = await supabaseClient
+      .from("leaderboard_entries")
+      .select("username, is_anonymous, best_score")
+      .order("best_score", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    leaderboardList.innerHTML = "";
+
+    if (!data || data.length === 0) {
+
+      leaderboardList.innerHTML =
+        "<p>No scores yet. Be the first to compete!</p>";
+
+      return;
+    }
+
+    data.forEach((player, index) => {
+
+      const row = document.createElement("div");
+
+      row.style.cssText = `
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        padding:13px;
+        margin-bottom:8px;
+        border:1px solid rgba(255,255,255,.1);
+        border-radius:14px;
+        background:#101a31;
+        gap:10px;
+      `;
+
+      const name = player.is_anonymous
+        ? "Anonymous Player"
+        : player.username;
+
+      const rank = index + 1;
+
+      const medal =
+        rank === 1 ? "🥇" :
+        rank === 2 ? "🥈" :
+        rank === 3 ? "🥉" :
+        "#" + rank;
+
+      const playerName = document.createElement("strong");
+      playerName.textContent = medal + " " + name;
+
+      const playerScore = document.createElement("b");
+      playerScore.textContent = player.best_score + " pts";
+      playerScore.style.color = "var(--gold)";
+
+      row.appendChild(playerName);
+      row.appendChild(playerScore);
+
+      leaderboardList.appendChild(row);
+
+    });
+
+  } catch (error) {
+
+    console.error("Leaderboard error:", error);
+
+    leaderboardList.textContent =
+      "Could not load leaderboard: " + error.message;
+
+  }
+
+}
+
+
+document.getElementById("viewLeaderboard").onclick =
+  loadLeaderboard;
+
+document.getElementById("refreshLeaderboard").onclick =
+  loadLeaderboard;
+
+document.getElementById("closeLeaderboard").onclick = () => {
+  leaderboardOverlay.classList.remove("show");
 };
 
 /* =========================================
