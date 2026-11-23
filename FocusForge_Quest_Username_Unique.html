@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FocusForge Quest</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#091020;
+  --panel:#141e38;
+  --line:#34476d;
+  --text:#f5f7ff;
+  --muted:#b0bdd8;
+  --cyan:#67e8f9;
+  --gold:#ffd166;
+  --green:#6ee7b7;
+  --red:#ff8294;
+}
+
+* {box-sizing:border-box}
+
+body {
+  margin:0;
+  background:radial-gradient(ellipse at top,#283b70,#0b1122 65%);
+  color:var(--text);
+  font-family:system-ui,Segoe UI,sans-serif;
+}
+
+main {
+  max-width:1050px;
+  margin:auto;
+  padding:22px 15px 40px;
+}
+
+header,.hero,.row,.mission {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+header {margin-bottom:22px}
+
+.brand {font-size:1.3rem;font-weight:900}
+
+.logo {
+  display:inline-grid;
+  place-items:center;
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#7ce7f0,#8b83ff);
+  color:#10162b;
+  margin-right:8px;
+}
+
+.badge {
+  border:1px solid #3e6285;
+  color:var(--cyan);
+  border-radius:999px;
+  padding:6px 12px;
+  font-size:.75rem;
+}
+
+h1 {
+  font-size:clamp(2rem,5vw,3.2rem);
+  letter-spacing:-1.5px;
+  line-height:1;
+  margin:0 0 10px;
+}
+
+p {color:var(--muted);line-height:1.55;margin:0}
+
+.hero {margin-bottom:22px;align-items:flex-end}
+
+.rank,.panel,.world,.mission,.stat,.tip {
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(18,28,51,.80);
+  border-radius:22px;
+  box-shadow:0 8px 28px rgba(0,0,0,.10);
+}
+
+.rank {padding:12px 18px;text-align:center}
+.rank b {display:block;color:var(--gold)}
+.rank small {color:var(--muted)}
+
+.layout {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 245px;
+  gap:16px;
+}
+
+.panel {padding:22px;background:rgba(18,27,50,.92);border-radius:26px}
+
+.section {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:2px 0 14px;
+}
+
+.section h2 {font-size:1.05rem;margin:0}
+.muted {font-size:.78rem;color:var(--muted)}
+
+.worlds {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  margin-bottom:18px;
+}
+
+.world {
+  padding:14px;
+  text-align:left;
+  color:var(--text);
+  cursor:pointer;
+  min-width:0;
+  background:linear-gradient(145deg,#172541,#111b30);
+  border-radius:22px;
+  transition:transform .2s,border-color .2s;
+}
+
+.world:hover:not(:disabled) {
+  transform:translateY(-3px);
+  border-color:rgba(103,232,249,.5);
+}
+
+.world .emoji {font-size:1.5rem;display:block}
+.world strong {display:block;font-size:.83rem;margin:6px 0}
+.world small {font-size:.7rem;color:var(--muted)}
+.world.active {border-color:var(--cyan)}
+.world:disabled {opacity:.4;cursor:not-allowed}
+
+.world.complete:after {
+  content:"✓ CLEARED";
+  display:block;
+  color:var(--green);
+  font-size:.65rem;
+  margin-top:5px;
+  font-weight:900;
+}
+
+.levels {
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:9px;
+  margin-bottom:17px;
+}
+
+.level {
+  min-height:62px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;
+  background:#192746;
+  color:var(--text);
+  font-weight:800;
+  cursor:pointer;
+}
+
+.level:hover:not(:disabled) {background:#223554}
+.level small {display:block;color:var(--gold);margin-top:4px}
+.level.active {border-color:var(--cyan);background:#243a5c}
+.level:disabled {opacity:.35;cursor:not-allowed}
+
+.mission {
+  padding:15px 18px;
+  background:linear-gradient(110deg,#1c2b4c,#16213b);
+  margin-bottom:14px;
+  border-radius:24px;
+}
+
+.eyebrow {
+  font-size:.7rem;
+  color:var(--cyan);
+  letter-spacing:1px;
+  font-weight:900;
+}
+
+.mission h3 {margin:4px 0;font-size:1.05rem}
+.mission p {font-size:.82rem}
+.mission .emoji {font-size:1.8rem}
+
+.rule {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#0b1428;
+  border:1px solid rgba(255,255,255,.07);
+  padding:14px;
+  border-radius:20px;
+  margin-bottom:14px;
+}
+
+.rule b {display:block;margin-top:3px}
+
+.symbol {
+  font-size:1.7rem;
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  background:#1a2745;
+  border-radius:18px;
+}
+
+.grid {display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+
+.tile {
+  min-height:82px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:24px;
+  background:linear-gradient(145deg,#1b2947,#10182c);
+  font-size:2.3rem;
+  cursor:pointer;
+}
+
+.tile.correct {border-color:var(--green);background:#14382f}
+.tile.wrong {border-color:var(--red);background:#3b1e31}
+.tile:disabled {cursor:default}
+
+button:focus-visible {
+  outline:2px solid rgba(120,170,255,.8);
+  outline-offset:3px;
+}
+
+.actions {display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+
+.btn {
+  border:0;
+  border-radius:999px;
+  padding:12px 18px;
+  font-weight:850;
+  cursor:pointer;
+}
+
+.primary {
+  background:linear-gradient(100deg,#8fa4ff,#67e8f9);
+  color:#0a1226;
+}
+
+.secondary {
+  background:#293958;
+  color:var(--text);
+  border:1px solid rgba(255,255,255,.09);
+}
+
+.status {min-height:25px;margin-top:12px;color:var(--muted);font-size:.88rem}
+.status.good {color:var(--green)}
+.status.bad {color:var(--gold)}
+
+.side {display:grid;gap:12px;align-content:start}
+.stats {display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.stat,.tip {padding:14px;border-radius:20px}
+.stat span {display:block;color:var(--muted);font-size:.75rem}
+.stat b {display:block;font-size:1.4rem;margin-top:4px}
+.gold {color:var(--gold)}
+.tip h3 {font-size:.9rem;margin:0 0 7px}
+.tip p {font-size:.82rem}
+
+.bar {height:8px;border-radius:999px;background:#303e5e;margin-top:12px;overflow:hidden}
+.fill {height:100%;background:linear-gradient(90deg,#8fa4ff,#67e8f9);width:0;border-radius:999px}
+
+.overlay {
+  position:fixed;
+  inset:0;
+  background:#050917dc;
+  backdrop-filter:blur(12px);
+  display:none;
+  place-items:center;
+  padding:16px;
+  z-index:1000;
+}
+
+.overlay.show {display:grid}
+
+.modal {
+  width:min(420px,100%);
+  background:#17223e;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:28px;
+  padding:26px;
+  text-align:center;
+}
+
+.modal .big {font-size:3rem}
+.modal h2 {margin:5px}
+.modal p {margin:12px 0}
+.modal .actions {justify-content:center}
+
+.auth-panel {
+  display:none;
+  background:rgba(18,27,50,.95);
+  border:1px solid rgba(103,232,249,.35);
+  border-radius:22px;
+  padding:20px;
+  margin-bottom:20px;
+}
+
+.auth-panel.show {display:block}
+
+.auth-panel h2 {margin-top:0}
+
+.auth-panel input {
+  display:block;
+  width:100%;
+  padding:12px;
+  margin:10px 0;
+  border-radius:10px;
+  border:1px solid #526587;
+  background:#0b1428;
+  color:white;
+  font-size:1rem;
+}
+
+.google-btn {
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  margin:14px 0 8px;
+  padding:12px 16px;
+  border:1px solid #d6d9df;
+  border-radius:12px;
+  background:#fff;
+  color:#202124;
+  font-size:1rem;
+  font-weight:700;
+  cursor:pointer;
+}
+.google-btn:hover {background:#f1f3f4}
+.google-btn:disabled {opacity:.65;cursor:wait}
+.google-icon {font-weight:900;font-size:1.1rem;color:#4285f4}
+.auth-divider {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:12px 0;
+  color:var(--muted);
+  font-size:.8rem;
+}
+.auth-divider:before,.auth-divider:after {
+  content:"";
+  height:1px;
+  flex:1;
+  background:#526587;
+}
+
+.auth-message {
+  margin-top:10px;
+  min-height:22px;
+  color:var(--gold);
+  font-size:.85rem;
+}
+
+.account-bar {
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-bottom:15px;
+}
+
+.account-bar span {color:var(--muted);font-size:.85rem}
+
+footer {
+  font-size:.76rem;
+  color:#9eacc9;
+  line-height:1.5;
+  margin-top:18px;
+}
+
+body.mission-mode {overflow:auto}
+
+body.mission-mode main > .hero,
+body.mission-mode footer,
+body.mission-mode .side {display:none!important}
+
+body.mission-mode .layout {display:block}
+
+body.mission-mode .layout > .panel {
+  max-width:1000px;
+  margin:0 auto;
+  min-height:calc(100vh - 90px);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+body.mission-mode .layout > .panel > .section,
+body.mission-mode .worlds,
+body.mission-mode .levels {display:none!important}
+
+body.mission-mode .overlay {z-index:9999}
+
+@media(max-width:740px) {
+  .layout {grid-template-columns:1fr}
+  .hero {align-items:flex-start}
+}
+
+@media(max-width:420px) {
+  main {padding:14px 9px}
+  .panel {padding:14px}
+  .world {padding:9px}
+  .world strong {font-size:.72rem}
+  .levels {gap:5px}
+  .level {min-height:54px;font-size:.8rem}
+  .tile {min-height:60px;font-size:2rem}
+}
+</style>
+</head>
+
+<body>
+
+<main>
+
+<header>
+  <div class="brand">
+    <span class="logo">F</span>FOCUSFORGE
+    <span style="color:var(--cyan)">QUEST</span>
+  </div>
+  <span class="badge">CAMPAIGN MODE</span>
+</header>
+
+<div class="account-bar">
+  <span id="accountStatus">Playing as guest — World 1 is free.</span>
+  <button class="btn secondary" id="showAuth">Sign in / Create account</button>
+  <button class="btn secondary" id="logoutBtn" hidden>Log out</button>
+</div>
+
+<section class="auth-panel" id="authPanel">
+  <h2>🔐 Player account</h2>
+  <p>Sign in or create an account to unlock Worlds 2 and 3.</p>
+
+  <button class="google-btn" id="googleBtn" type="button">
+    <span class="google-icon" aria-hidden="true">G</span>
+    Continue with Google
+  </button>
+  <div class="auth-divider">OR USE EMAIL</div>
+
+  <input id="usernameInput" type="text" placeholder="Choose a username (for new accounts)" autocomplete="username" maxlength="20">
+  <input id="emailInput" type="email" placeholder="Email address" autocomplete="email">
+  <input id="passwordInput" type="password" placeholder="Password" autocomplete="current-password">
+  <p class="muted" style="margin: -4px 0 10px; font-size: 12px;">Usernames: 3–20 characters; letters, numbers, and underscores only. Leave username blank when logging in.</p>
+
+  <div class="actions">
+    <button class="btn primary" id="signupBtn">Create account</button>
+    <button class="btn secondary" id="loginBtn">Log in</button>
+    <button class="btn secondary" id="hideAuth">Close</button>
+  </div>
+
+  <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+</section>
+
+<div class="hero">
+  <div>
+    <h1 id="welcomeHeading">Ready, player one?</h1>
+    <p>Clear levels, earn stars, unlock new worlds.<br>
+    Every world adds a bigger challenge.</p>
+  </div>
+  <div class="rank">
+    <b id="rank">ROOKIE</b>
+    <small>PLAYER RANK</small>
+  </div>
+</div>
+
+<div class="layout">
+
+<section class="panel">
+
+  <div class="section">
+    <h2>Choose your world</h2>
+    <span class="muted" id="clearedCount">0 / 15 cleared</span>
+  </div>
+
+  <div class="worlds" id="worlds"></div>
+
+  <div class="section">
+    <h2>Level map</h2>
+    <span class="muted">Earn up to 3 stars</span>
+  </div>
+
+  <div class="levels" id="levels"></div>
+
+  <div class="mission">
+    <div>
+      <div class="eyebrow" id="chapter">WORLD 1 · LEVEL 1</div>
+      <h3 id="missionTitle">Warm-up</h3>
+      <p id="missionDesc">Find every matching shape.</p>
+    </div>
+    <span class="emoji" id="worldIcon">🎯</span>
+  </div>
+
+  <div class="rule">
+    <div>
+      <div class="eyebrow">MISSION RULE</div>
+      <b id="ruleText">Ready for your mission?</b>
+    </div>
+    <div class="symbol" id="symbol">✦</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="actions">
+    <button class="btn primary" id="start">▶ Start level</button>
+    <button class="btn secondary" id="restart">↩ Level map</button>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite">
+    Choose a level and start your mission.
+  </div>
+
+</section>
+
+<aside class="side">
+
+  <section class="panel">
+    <div class="section">
+      <h2>Player stats</h2>
+      <span class="muted">This run</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span>⭐ Total stars</span>
+        <b class="gold" id="stars">0 / 45</b>
+      </div>
+
+      <div class="stat">
+        <span>🏆 Best score</span>
+        <b id="best">0</b>
+      </div>
+
+      <div class="stat">
+        <span>🎯 Accuracy</span>
+        <b id="accuracy">—</b>
+      </div>
+
+      <div class="stat">
+        <span>⏱ Time left</span>
+        <b id="time">—</b>
+      </div>
+    </div>
+
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <p class="muted" id="progressText" style="margin-top:8px">
+      Clear levels to unlock more.
+    </p>
+  </section>
+
+  <section class="tip">
+    <h3>🕹️ How to play</h3>
+    <p>Read the target rule. Select every tile matching BOTH the color and shape. Wrong picks cost 2 seconds. Finish before time runs out.</p>
+  </section>
+
+  <section class="tip">
+    <h3>💡 Mission tip</h3>
+    <p id="tip">Check both the color and shape before tapping.</p>
+  </section>
+
+  <section class="tip">
+    <h3>🛠️ Maker mission</h3>
+    <p>This is an experiment, not a proven attention treatment. Later, you can test adaptive difficulty and compare results.</p>
+  </section>
+
+  <button class="btn secondary" id="resetProgress">Reset campaign progress</button>
+
+</aside>
+</div>
+
+<footer>
+  Progress is saved in this browser on this device.
+  Improving your game score does not prove that everyday attention has improved.
+</footer>
+
+</main>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="big" id="resultIcon">🏆</div>
+    <h2 id="resultTitle">LEVEL CLEARED!</h2>
+    <p id="resultText"></p>
+    <div class="actions">
+      <button class="btn primary" id="continue">Continue ➜</button>
+      <button class="btn secondary" id="close">Level map</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================
+   SUPABASE SETUP
+========================================= */
+
+// Use your Supabase Project URL (without /rest/v1/).
+const SUPABASE_URL = "https://vrtwvzatlnymtuqvzevj.supabase.co";
+// A publishable/anon key is safe to use in browser code. Never put a service_role key here.
+const SUPABASE_KEY = "sb_publishable_oGGExMam7TwvMqYsLDbZww_ZQxM_raA";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+let currentUser = null;
+let currentUsername = null;
+
+const authPanel = document.getElementById("authPanel");
+const authMessage = document.getElementById("authMessage");
+
+function showAuth(message = "") {
+  authPanel.classList.add("show");
+  authMessage.textContent = message;
+  document.getElementById("usernameInput").focus();
+}
+
+function hideAuth() {
+  authPanel.classList.remove("show");
+}
+
+function updateAccountUI() {
+  const status = document.getElementById("accountStatus");
+  const showButton = document.getElementById("showAuth");
+  const logoutButton = document.getElementById("logoutBtn");
+  const welcomeHeading = document.getElementById("welcomeHeading");
+
+  if (currentUser) {
+    status.textContent = "Signed in as " + (currentUsername || "player") + " · " + currentUser.email;
+    welcomeHeading.textContent = currentUsername ? "Hello, " + currentUsername + "!" : "Welcome back!";
+    showButton.hidden = true;
+    logoutButton.hidden = false;
+    hideAuth();
+  } else {
+    status.textContent = "Playing as guest — World 1 is free.";
+    welcomeHeading.textContent = "Ready, player one?";
+    showButton.hidden = false;
+    logoutButton.hidden = true;
+  }
+
+  if (typeof render === "function") render();
+}
+
+// Read the username saved in public.profiles for the signed-in account.
+async function loadCurrentUsername(user) {
+  if (!user) {
+    currentUsername = null;
+    updateAccountUI();
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("username")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Ignore an old request if the player has since signed out or changed accounts.
+  if (!currentUser || currentUser.id !== user.id) return;
+
+  if (error) {
+    console.error("Could not load player profile:", error.message);
+    currentUsername = user.user_metadata?.username || null;
+  } else {
+    currentUsername = data?.username || user.user_metadata?.username || null;
+  }
+  updateAccountUI();
+}
+
+async function checkSession() {
+  const { data, error } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    console.error(error.message);
+    return;
+  }
+
+  currentUser = data.session?.user || null;
+  currentUsername = null;
+  updateAccountUI();
+  if (currentUser) await loadCurrentUsername(currentUser);
+}
+
+document.getElementById("showAuth").onclick = () => showAuth();
+document.getElementById("hideAuth").onclick = hideAuth;
+
+// Google sign-in and first-time Google signup use the same OAuth flow.
+// Supabase creates the user on the first successful Google sign-in.
+document.getElementById("googleBtn").onclick = async () => {
+  const button = document.getElementById("googleBtn");
+  button.disabled = true;
+  authMessage.textContent = "Connecting to Google...";
+
+  // Return the player to this same game page after OAuth completes.
+  const redirectTo = window.location.origin + window.location.pathname;
+
+  try {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo }
+    });
+
+    if (error) {
+      authMessage.textContent = "Google sign-in failed: " + error.message;
+      button.disabled = false;
+    }
+  } catch (err) {
+    authMessage.textContent = "Google sign-in couldn't start. Please try again.";
+    console.error("Google OAuth error:", err);
+    button.disabled = false;
+  }
+};
+
+document.getElementById("signupBtn").onclick = async () => {
+  const username = document.getElementById("usernameInput").value.trim();
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+
+  if (!username || !email || !password) {
+    authMessage.textContent = "Choose a username, then enter your email and password.";
+    return;
+  }
+
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+    authMessage.textContent = "Username must be 3–20 characters and use only letters, numbers, or underscores.";
+    return;
+  }
+
+  authMessage.textContent = "Creating your account...";
+  document.getElementById("signupBtn").disabled = true;
+
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        // The database's on_auth_user_created trigger uses this value
+        // when it creates the matching row in public.profiles.
+        data: { username }
+      }
+    });
+
+    if (error) {
+      const message = error.message || "";
+      authMessage.textContent = /duplicate|unique|profiles_username_lower_key/i.test(message)
+        ? "That username is already taken. Please choose another one."
+        : message;
+      return;
+    }
+
+    if (data.session && data.user) {
+      currentUser = data.user;
+      currentUsername = username;
+      updateAccountUI();
+      await loadCurrentUsername(data.user);
+      authMessage.textContent = "Account created! Welcome, " + (currentUsername || username) + "!";
+    } else {
+      authMessage.textContent = "Account created! Check your email for a confirmation link, then log in.";
+    }
+  } catch (err) {
+    console.error("Signup error:", err);
+    authMessage.textContent = "Signup failed. Please try again.";
+  } finally {
+    document.getElementById("signupBtn").disabled = false;
+  }
+};
+
+document.getElementById("loginBtn").onclick = async () => {
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+
+  if (!email || !password) {
+    authMessage.textContent = "Enter an email and password first.";
+    return;
+  }
+
+  authMessage.textContent = "Logging in...";
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    authMessage.textContent = error.message;
+    return;
+  }
+
+  currentUser = data.user;
+  currentUsername = null;
+  updateAccountUI();
+  await loadCurrentUsername(data.user);
+  authMessage.textContent = "Successfully signed in" + (currentUsername ? ", " + currentUsername : "") + "!";
+};
+
+document.getElementById("logoutBtn").onclick = async () => {
+  const { error } = await supabaseClient.auth.signOut();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  currentUser = null;
+  currentUsername = null;
+  updateAccountUI();
+  showAuth("You have logged out.");
+};
+
+supabaseClient.auth.onAuthStateChange((_event, session) => {
+  currentUser = session?.user || null;
+  currentUsername = null;
+  updateAccountUI();
+  if (currentUser) {
+    // Defer the profile request so it does not run inside Supabase's auth callback.
+    const user = currentUser;
+    setTimeout(() => loadCurrentUsername(user), 0);
+  }
+});
+
+/* =========================================
+   FOCUSFORGE QUEST GAME
+========================================= */
+
+(() => {
+
+const colors = [
+  ["BLUE","#70a4ff"],
+  ["GOLD","#ffd166"],
+  ["PINK","#ff85b3"],
+  ["GREEN","#62d8b1"],
+  ["PURPLE","#ba9cff"]
+].map(([name,hex]) => ({name,hex}));
+
+const shapes = [
+  ["CIRCLE","●"],
+  ["SQUARE","■"],
+  ["TRIANGLE","▲"],
+  ["DIAMOND","◆"]
+].map(([name,glyph]) => ({name,glyph}));
+
+const worlds = [
+{
+  name:"Training Grounds",
+  icon:"🎯",
+  desc:"Learn the basics",
+  levels:[
+    ["Warm-up","Find every matching shape.",35,9,2],
+    ["Quick Scan","A bigger board, same goal.",35,12,3],
+    ["Color Switch","Read the new target.",32,12,3],
+    ["Shape Shift","More distractions join in.",32,16,4],
+    ["First Trial","Clear the board accurately.",30,16,4]
+  ]
+},
+{
+  name:"Distraction City",
+  icon:"🌆",
+  desc:"Filter the noise",
+  levels:[
+    ["Crowded Streets","More tiles, more distractions.",30,16,4],
+    ["Double Check","Targets hide among lookalikes.",28,16,5],
+    ["Fast Lane","Beat a shorter timer.",25,16,5],
+    ["Focus Tunnel","A crowded board, strict goal.",25,20,5],
+    ["City Champion","Prove your strategy.",25,20,6]
+  ]
+},
+{
+  name:"Mastermind Galaxy",
+  icon:"🚀",
+  desc:"Master the challenge",
+  levels:[
+    ["Orbit One","A larger field of shapes.",24,20,6],
+    ["Nebula Noise","Find targets on a packed board.",23,20,7],
+    ["Star Switch","A new target every puzzle.",22,20,7],
+    ["Cosmic Trial","High challenge, limited time.",21,20,8],
+    ["Focus Legend","The final campaign challenge!",20,20,8]
+  ]
+}
+];
+
+const $ = id => document.getElementById(id);
+const key = (w,l) => w+"-"+l;
+
+let save = {cleared:{},stars:{},best:0};
+
+try {
+  const v = JSON.parse(localStorage.getItem("focusforge-quest-v1"));
+  if(v && v.cleared && v.stars) save = v;
+} catch(e) {}
+
+let wi=0, li=0, active=false, timer=null, timeLeft=0,
+score=0, attempts=0, correct=0, tiles=[], targets=[],
+selected=new Set(), puzzleDone=false, won=false;
+
+const cleared = (w,l) => !!save.cleared[key(w,l)];
+
+const worldProgressUnlocked = w =>
+  w===0 || cleared(w-1,worlds[w-1].levels.length-1);
+
+const unlocked = (w,l) =>
+  w===0 && l===0 ? true :
+  l>0 ? cleared(w,l-1) :
+  cleared(w-1,worlds[w-1].levels.length-1);
+
+const clearedTotal = () =>
+  Object.values(save.cleared).filter(Boolean).length;
+
+const starTotal = () =>
+  Object.values(save.stars).reduce((a,b)=>a+b,0);
+
+function persist() {
+  try {
+    localStorage.setItem("focusforge-quest-v1",JSON.stringify(save));
+  } catch(e) {}
+}
+
+function stats() {
+  const st=starTotal(),ct=clearedTotal();
+
+  $("stars").textContent=st+" / 45";
+  $("best").textContent=save.best;
+  $("clearedCount").textContent=ct+" / 15 cleared";
+  $("fill").style.width=(ct/15*100)+"%";
+  $("progressText").textContent=ct===15?
+    "Campaign complete!":(15-ct)+" levels left";
+
+  $("rank").textContent=st>=35?"FOCUS LEGEND":
+    st>=22?"MASTERMIND":
+    st>=10?"RISING STAR":"ROOKIE";
+
+  $("accuracy").textContent=attempts?
+    Math.round(correct/attempts*100)+"%":"—";
+
+  $("time").textContent=active?timeLeft+"s":"—";
+}
+
+function stop() {
+  active=false;
+  clearInterval(timer);
+  timer=null;
+  timeLeft=0;
+  score=0;
+  attempts=0;
+  correct=0;
+  tiles=[];
+  targets=[];
+  selected=new Set();
+  puzzleDone=false;
+  won=false;
+}
+
+function drawWorlds() {
+  const el=$("worlds");
+  el.innerHTML="";
+
+  worlds.forEach((w,i)=>{
+    const b=document.createElement("button");
+
+    b.className="world"+(wi===i?" active":"")+
+      (w.levels.every((_,l)=>cleared(i,l))?" complete":"");
+
+    // Worlds 2 and 3 require login.
+    // They also require the previous world to be cleared.
+    b.disabled=!worldProgressUnlocked(i);
+
+    b.innerHTML=`<span class="emoji">${w.icon}</span>
+      <strong>${w.name}</strong>
+      <small>${w.desc}</small>`;
+
+    b.onclick=()=>{
+      if(i>0 && !currentUser) {
+        showAuth("Create an account or log in to access this world.");
+        return;
+      }
+
+      wi=i;
+      li=0;
+      stop();
+      render();
+    };
+
+    el.appendChild(b);
+  });
+}
+
+function drawLevels() {
+  const el=$("levels");
+  el.innerHTML="";
+
+  worlds[wi].levels.forEach((lv,i)=>{
+    const b=document.createElement("button");
+
+    b.className="level"+(li===i?" active":"");
+    b.disabled=!unlocked(wi,i);
+
+    b.innerHTML=`${b.disabled?"🔒":i+1}
+      <small>${"★".repeat(save.stars[key(wi,i)]||0)}
+      ${"☆".repeat(3-(save.stars[key(wi,i)]||0))}</small>`;
+
+    b.onclick=()=>{
+      li=i;
+      stop();
+      render();
+    };
+
+    el.appendChild(b);
+  });
+}
+
+function render() {
+  drawWorlds();
+  drawLevels();
+  stats();
+
+  const w=worlds[wi],lv=w.levels[li];
+
+  $("chapter").textContent=`WORLD ${wi+1} · LEVEL ${li+1}`;
+  $("missionTitle").textContent=lv[0];
+  $("missionDesc").textContent=lv[1];
+  $("worldIcon").textContent=w.icon;
+
+  $("tip").textContent=[
+    "Check both the color and shape before tapping.",
+    "Scan the board carefully; lookalikes are distractions.",
+    "Use a steady scan pattern and prioritize accuracy."
+  ][wi];
+
+  if(!active) {
+    $("ruleText").textContent="Ready for your mission?";
+    $("symbol").textContent="✦";
+    $("symbol").style.color="var(--gold)";
+    $("grid").innerHTML="";
+    $("grid").style.gridTemplateColumns="repeat(4,1fr)";
+
+    $("status").textContent=unlocked(wi,li)?
+      "Press Start level when you are ready.":
+      "Clear the previous level to unlock this one.";
+
+    $("start").disabled=!unlocked(wi,li);
+    $("start").textContent=cleared(wi,li)?
+      "↻ Replay level":"▶ Start level";
+  }
+}
+
+function puzzle() {
+  if(!active) return;
+
+  selected=new Set();
+  puzzleDone=false;
+
+  const lv=worlds[wi].levels[li];
+
+  const target={
+    color:colors[Math.random()*colors.length|0],
+    shape:shapes[Math.random()*shapes.length|0]
+  };
+
+  $("ruleText").textContent=
+    "Find every "+target.color.name+" "+target.shape.name;
+
+  $("symbol").textContent=target.shape.glyph;
+  $("symbol").style.color=target.color.hex;
+
+  tiles=[];
+
+  for(let i=0;i<lv[4];i++)
+    tiles.push({...target,match:true});
+
+  while(tiles.length<lv[3]) {
+    const c=colors[Math.random()*colors.length|0];
+    const s=shapes[Math.random()*shapes.length|0];
+
+    if(c.name===target.color.name &&
+       s.name===target.shape.name) continue;
+
+    tiles.push({color:c,shape:s,match:false});
+  }
+
+  for(let i=tiles.length-1;i>0;i--) {
+    const j=Math.random()*(i+1)|0;
+    [tiles[i],tiles[j]]=[tiles[j],tiles[i]];
+  }
+
+  targets=tiles.map((t,i)=>t.match?i:-1).filter(i=>i>=0);
+
+  const g=$("grid");
+  g.innerHTML="";
+  g.style.gridTemplateColumns=
+    `repeat(${lv[3]<=9?3:4},minmax(0,1fr))`;
+
+  tiles.forEach((t,i)=>{
+    const b=document.createElement("button");
+    b.className="tile";
+    b.setAttribute("aria-label",t.color.name+" "+t.shape.name);
+    b.innerHTML=`<span style="color:${t.color.hex}">${t.shape.glyph}</span>`;
+    b.onclick=()=>choose(i,b);
+    g.appendChild(b);
+  });
+
+  $("status").textContent="Find all "+lv[4]+" targets!";
+  $("status").className="status";
+  stats();
+}
+
+function choose(i,b) {
+  if(!active || puzzleDone || selected.has(i)) return;
+
+  selected.add(i);
+  attempts++;
+
+  if(tiles[i].match) {
+    correct++;
+    score+=100;
+    b.className="tile correct";
+    b.textContent="✓";
+  } else {
+    score=Math.max(0,score-25);
+    timeLeft=Math.max(0,timeLeft-2);
+    b.className="tile wrong";
+    b.textContent="×";
+  }
+
+  b.disabled=true;
+  stats();
+
+  const remaining=targets.filter(j=>!selected.has(j)).length;
+
+  if(!remaining) {
+    puzzleDone=true;
+    [...$("grid").children].forEach(x=>x.disabled=true);
+    finish(true);
+  } else {
+    $("status").textContent=tiles[i].match?
+      remaining+" target(s) remaining.":
+      "Not a match — check color and shape.";
+
+    $("status").className=tiles[i].match?
+      "status":"status bad";
+  }
+
+  if(timeLeft<=0) finish(false);
+}
+
+function enterMissionMode() {
+  document.body.classList.add("mission-mode");
+  $("restart").textContent="↩ Exit mission";
+
+  if(document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(()=>{});
+  }
+}
+
+function exitMissionMode() {
+  document.body.classList.remove("mission-mode");
+  $("restart").textContent="↩ Level map";
+
+  if(document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(()=>{});
+  }
+}
+
+function start() {
+  // Final check before starting a level in a paid/locked world.
+  if(wi>0 && !currentUser) {
+    showAuth("Log in to play Worlds 2 and 3.");
+    return;
+  }
+
+  enterMissionMode();
+  stop();
+  active=true;
+
+  const lv=worlds[wi].levels[li];
+  timeLeft=lv[2];
+
+  $("start").disabled=true;
+  $("start").textContent="Mission in progress…";
+
+  puzzle();
+
+  timer=setInterval(()=>{
+    timeLeft--;
+    stats();
+    if(timeLeft<=0) finish(false);
+  },1000);
+}
+
+function finish(success) {
+  if(!active) return;
+
+  active=false;
+  clearInterval(timer);
+  timer=null;
+
+  [...$("grid").children].forEach(x=>x.disabled=true);
+
+  won=success;
+  $("start").disabled=false;
+
+  const acc=attempts?correct/attempts:0;
+
+  if(success) {
+    const stars=
+      timeLeft>=worlds[wi].levels[li][2]*.45 && acc>=.85?3:
+      acc>=.65?2:1;
+
+    save.cleared[key(wi,li)]=true;
+    save.stars[key(wi,li)]=Math.max(
+      save.stars[key(wi,li)]||0,stars
+    );
+
+    save.best=Math.max(save.best,score);
+    persist();
+
+    $("resultIcon").textContent=
+      stars===3?"🏆":stars===2?"🌟":"⭐";
+
+    $("resultTitle").textContent="LEVEL CLEARED!";
+
+    $("resultText").textContent=
+      `You earned ${stars} star(s), scored ${score}, and had ${Math.round(acc*100)}% accuracy. Your progress is saved.`;
+
+    $("continue").textContent=
+      hasNext()?"Next level ➜":"Campaign complete";
+
+    $("status").textContent="Level cleared! Star rating saved.";
+    $("status").className="status good";
+
+  } else {
+    $("resultIcon").textContent="⏱️";
+    $("resultTitle").textContent="TIME UP!";
+
+    $("resultText").textContent=
+      `You scored ${score} with ${attempts?Math.round(acc*100):0}% accuracy. Retry and see if you can clear the level.`;
+
+    $("continue").textContent="Retry level";
+    $("status").textContent="Time ran out. Try the level again.";
+    $("status").className="status bad";
+  }
+
+  stats();
+  $("overlay").classList.add("show");
+}
+
+function hasNext() {
+  return li<4 || wi<2;
+}
+
+function continueGame() {
+  $("overlay").classList.remove("show");
+
+  if(!won) {
+    start();
+    return;
+  }
+
+  if(li<4) li++;
+  else if(wi<2) {
+    wi++;
+    li=0;
+  } else {
+    stop();
+    exitMissionMode();
+    render();
+    return;
+  }
+
+  // Do not automatically enter a locked world without login.
+  if(wi>0 && !currentUser) {
+    wi=0;
+    li=4;
+    stop();
+    exitMissionMode();
+    render();
+    showAuth("Log in to continue into the next world.");
+    return;
+  }
+
+  stop();
+  render();
+}
+
+$("start").onclick=start;
+
+$("restart").onclick=()=>{
+  stop();
+  exitMissionMode();
+  render();
+};
+
+$("continue").onclick=continueGame;
+
+$("close").onclick=()=>{
+  $("overlay").classList.remove("show");
+  stop();
+  exitMissionMode();
+  render();
+};
+
+$("overlay").onclick=e=>{
+  if(e.target===$("overlay")) {
+    $("overlay").classList.remove("show");
+    stop();
+    exitMissionMode();
+    render();
+  }
+};
+
+$("resetProgress").onclick=()=>{
+  if(confirm("Reset all unlocked levels and stars on this browser?")) {
+    save={cleared:{},stars:{},best:0};
+    persist();
+    wi=0;
+    li=0;
+    stop();
+    render();
+  }
+};
+
+render();
+
+})(); // End game
+
+checkSession();
+</script>
+
+</body>
+</html>
