@@ -549,14 +549,14 @@ body.mission-mode .overlay {z-index:9999}
     Continue with Google
   </button>
 
-  <div class="auth-divider">OR USE EMAIL</div>
+  <div class="auth-divider">OR USE EMAIL / LAZAR ACCOUNT</div>
 
   <button class="btn secondary" id="lazarModeBtn" type="button">
     🏫 Lazar Student
   </button>
 
   <div id="lazarVerifyBox" hidden>
-    <p style="margin:12px 0 6px;">Lazar students: enter your email and answer this question to continue:</p>
+    <p style="margin:12px 0 6px;">Lazar students: answer this question to create an account. No email needed.</p>
     <p><strong>Who is the French teacher listed in LMS?</strong></p>
     <input id="lazarAnswerInput" type="text"
       placeholder="Answer the Lazar verification question"
@@ -566,8 +566,8 @@ body.mission-mode .overlay {z-index:9999}
     </button>
   </div>
 
-  <input id="emailInput" type="email"
-    placeholder="Email address" autocomplete="email">
+  <input id="emailInput" type="text"
+    placeholder="Email address (or Lazar username to log in)" autocomplete="username">
 
   <input id="usernameInput" type="text"
     placeholder="Choose a username (for new accounts)"
@@ -811,10 +811,8 @@ let currentUser = null;
 let currentUsername = null;
 let lazarMode = false;
 let lazarVerified = false;
-let lazarClaimInProgress = false;
 
 const LAZAR_TOKEN_KEY = "focusforge-lazar-verification-token";
-const LAZAR_EMAIL_KEY = "focusforge-lazar-verification-email";
 
 const $ = id => document.getElementById(id);
 
@@ -835,57 +833,20 @@ function setLazarMode(enabled) {
   lazarMode = enabled;
   lazarVerified = !!sessionStorage.getItem(LAZAR_TOKEN_KEY);
 
+  $("emailInput").hidden = enabled;
   $("lazarVerifyBox").hidden = !enabled || lazarVerified;
   $("usernameInput").hidden = enabled && !lazarVerified;
   $("passwordInput").hidden = enabled && !lazarVerified;
   $("signupHelp").hidden = enabled && !lazarVerified;
   $("signupBtn").hidden = enabled && !lazarVerified;
+  $("loginBtn").hidden = enabled && !lazarVerified;
   $("lazarModeBtn").textContent = enabled
     ? "← Regular player signup"
     : "🏫 Lazar Student";
 
   if (enabled && !lazarVerified) {
     authMessage.textContent =
-      "Enter your email address and answer the Lazar question first.";
-  }
-}
-
-async function claimPendingLazarVerification(user) {
-  if (lazarClaimInProgress) return false;
-
-  const token = sessionStorage.getItem(LAZAR_TOKEN_KEY);
-  const savedEmail = sessionStorage.getItem(LAZAR_EMAIL_KEY);
-
-  if (!token || !user?.email || user.email.trim().toLowerCase() !== savedEmail) {
-    return false;
-  }
-
-  lazarClaimInProgress = true;
-
-  try {
-    const { data, error } = await supabaseClient.functions.invoke(
-      "claim-lazar",
-      { body: { token } }
-    );
-
-    if (error) throw error;
-    if (!data?.success) {
-      throw new Error(data?.message || "Lazar verification could not be completed.");
-    }
-
-    sessionStorage.removeItem(LAZAR_TOKEN_KEY);
-    sessionStorage.removeItem(LAZAR_EMAIL_KEY);
-    lazarVerified = false;
-    authMessage.textContent =
-      "Your account is now verified as a Lazar student!";
-    return true;
-  } catch (error) {
-    console.error("Lazar claim error:", error);
-    authMessage.textContent =
-      error.message || "Lazar verification could not be completed.";
-    return false;
-  } finally {
-    lazarClaimInProgress = false;
+      "Answer the Lazar question first. You will not need an email address.";
   }
 }
 
@@ -992,18 +953,13 @@ $("hideAuth").onclick = hideAuth;
 
 $("lazarModeBtn").onclick = () => {
   setLazarMode(!lazarMode);
-  if (lazarMode) $("emailInput").focus();
+  if (lazarMode && !lazarVerified) $("lazarAnswerInput").focus();
+  else if (lazarMode) $("usernameInput").focus();
+  else $("emailInput").focus();
 };
 
 $("verifyLazarBtn").onclick = async () => {
-  const email = $("emailInput").value.trim().toLowerCase();
   const answer = $("lazarAnswerInput").value;
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    authMessage.textContent = "Enter a valid email address first.";
-    $("emailInput").focus();
-    return;
-  }
 
   if (!answer.trim()) {
     authMessage.textContent = "Enter your answer first.";
@@ -1017,7 +973,7 @@ $("verifyLazarBtn").onclick = async () => {
   try {
     const { data, error } = await supabaseClient.functions.invoke(
       "verify-lazar",
-      { body: { answer, email } }
+      { body: { answer } }
     );
 
     if (error) throw error;
@@ -1028,15 +984,15 @@ $("verifyLazarBtn").onclick = async () => {
     }
 
     sessionStorage.setItem(LAZAR_TOKEN_KEY, data.token);
-    sessionStorage.setItem(LAZAR_EMAIL_KEY, email);
     lazarVerified = true;
     $("lazarVerifyBox").hidden = true;
     $("usernameInput").hidden = false;
     $("passwordInput").hidden = false;
     $("signupHelp").hidden = false;
     $("signupBtn").hidden = false;
+    $("loginBtn").hidden = true;
     authMessage.textContent =
-      "Answer accepted! Now choose a username and password to create your Lazar student account.";
+      "Answer accepted! Now choose a username and password. No email is required.";
     $("usernameInput").focus();
   } catch (error) {
     console.error("Lazar verification error:", error);
@@ -1089,21 +1045,14 @@ $("googleBtn").onclick = async () => {
 ========================================= */
 
 $("signupBtn").onclick = async () => {
-
-  if (lazarMode &&
-      (!sessionStorage.getItem(LAZAR_TOKEN_KEY) ||
-       sessionStorage.getItem(LAZAR_EMAIL_KEY) !== $("emailInput").value.trim().toLowerCase())) {
-    authMessage.textContent = "Please complete Lazar verification again before creating your account.";
-    return;
-  }
-
   const username = $("usernameInput").value.trim();
   const email = $("emailInput").value.trim();
   const password = $("passwordInput").value;
 
-  if (!username || !email || !password) {
-    authMessage.textContent =
-      "Choose a username, then enter your email and password.";
+  if (!username || !password || (!lazarMode && !email)) {
+    authMessage.textContent = lazarMode
+      ? "Choose a username and password."
+      : "Choose a username, then enter your email and password.";
     return;
   }
 
@@ -1113,19 +1062,61 @@ $("signupBtn").onclick = async () => {
     return;
   }
 
+  if (lazarMode && !sessionStorage.getItem(LAZAR_TOKEN_KEY)) {
+    authMessage.textContent = "Please complete the Lazar verification question again.";
+    setLazarMode(true);
+    return;
+  }
+
+  if (lazarMode && password.length < 8) {
+    authMessage.textContent = "Choose a password with at least 8 characters.";
+    return;
+  }
+
   authMessage.textContent = "Creating your account...";
   $("signupBtn").disabled = true;
 
   try {
+    if (lazarMode) {
+      const token = sessionStorage.getItem(LAZAR_TOKEN_KEY);
+      const { data, error } = await supabaseClient.functions.invoke(
+        "create-lazar-account",
+        { body: { token, username, password } }
+      );
 
-    const { data, error } =
-      await supabaseClient.auth.signUp({
-        email,
-        password,
-        options:{
-          data:{username}
-        }
-      });
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.message || "Lazar account could not be created.");
+      }
+
+      sessionStorage.removeItem(LAZAR_TOKEN_KEY);
+      const hiddenEmail = username.toLowerCase() + "@lazar.focusforge.invalid";
+      const { data: loginData, error: loginError } =
+        await supabaseClient.auth.signInWithPassword({
+          email: hiddenEmail,
+          password
+        });
+
+      if (loginError) {
+        authMessage.textContent =
+          "Your Lazar account was created, but automatic sign-in failed. Return to regular login and enter your Lazar username and password.";
+        return;
+      }
+
+      currentUser = loginData.user;
+      currentUsername = username;
+      updateAccountUI();
+      await loadCurrentUsername(loginData.user);
+      authMessage.textContent =
+        "Welcome, " + (currentUsername || username) + "! Your Lazar student account is ready.";
+      return;
+    }
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: { data: { username } }
+    });
 
     if (error) {
       authMessage.textContent =
@@ -1136,36 +1127,20 @@ $("signupBtn").onclick = async () => {
     }
 
     if (data.session && data.user) {
-
       currentUser = data.user;
       currentUsername = username;
-
       updateAccountUI();
       await loadCurrentUsername(data.user);
-
-      if (lazarMode) {
-        await claimPendingLazarVerification(data.user);
-      } else {
-        authMessage.textContent =
-          "Welcome, " + (currentUsername || username) + "!";
-      }
-
+      authMessage.textContent = "Welcome, " + (currentUsername || username) + "!";
     } else {
-
-      authMessage.textContent = lazarMode
-        ? "Account created! Confirm your email, then log in with this same email within 10 minutes to finish Lazar verification."
-        : "Account created! Check your email for a confirmation link, then log in.";
+      authMessage.textContent =
+        "Account created! Check your email for a confirmation link, then log in.";
     }
-
   } catch (error) {
-
     console.error("Signup error:", error);
-    authMessage.textContent = "Signup failed. Please try again.";
-
+    authMessage.textContent = error.message || "Signup failed. Please try again.";
   } finally {
-
     $("signupBtn").disabled = false;
-
   }
 };
 
@@ -1175,11 +1150,18 @@ $("signupBtn").onclick = async () => {
 
 $("loginBtn").onclick = async () => {
 
-  const email = $("emailInput").value.trim();
+  const loginId = $("emailInput").value.trim();
   const password = $("passwordInput").value;
+  const isEmailLogin = loginId.includes("@");
+  const email = isEmailLogin
+    ? loginId
+    : /^[A-Za-z0-9_]{3,20}$/.test(loginId)
+      ? loginId.toLowerCase() + "@lazar.focusforge.invalid"
+      : "";
 
   if (!email || !password) {
-    authMessage.textContent = "Enter your email and password first.";
+    authMessage.textContent =
+      "Enter your email (or Lazar username) and password first.";
     return;
   }
 
@@ -1205,13 +1187,10 @@ $("loginBtn").onclick = async () => {
     updateAccountUI();
     await loadCurrentUsername(data.user);
 
-    const claimedLazar = await claimPendingLazarVerification(data.user);
-    if (!claimedLazar) {
-      authMessage.textContent =
-        "Successfully signed in" +
-        (currentUsername ? ", " + currentUsername : "") +
-        "!";
-    }
+    authMessage.textContent =
+      "Successfully signed in" +
+      (currentUsername ? ", " + currentUsername : "") +
+      "!";
 
   } catch (error) {
 
@@ -1260,7 +1239,6 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
     const user = currentUser;
     setTimeout(async () => {
       await loadCurrentUsername(user);
-      await claimPendingLazarVerification(user);
     }, 0);
   }
 
