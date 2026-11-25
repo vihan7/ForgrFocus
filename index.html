@@ -2246,7 +2246,12 @@ render();
     players: {},
     scores: {},
     countdown: null,
-    roundTimer: null
+    roundTimer: null,
+    lobbyTimer: null,
+    roomId: null,
+    isPublic: false,
+    lobbyDeadline: null,
+    roomStatus: "waiting"
   };
 
   const roomText = (message) => { $("roomMessage").textContent = message; };
@@ -2280,7 +2285,7 @@ render();
     $("roomHostLabel").textContent = room.isHost
       ? "You are the room host."
       : "The room host controls when the round starts.";
-    $("startRoomRoundBtn").hidden = !room.isHost;
+    $("startRoomRoundBtn").hidden = room.isPublic || !room.isHost;
     roomRoster();
   }
 
@@ -2309,6 +2314,8 @@ render();
   async function handleRoomEvent(payload) {
     if (!payload || !payload.event) return;
     if (payload.event === "round_start") {
+      if (room.isPublic) { room.roomStatus = "started"; clearInterval(room.lobbyTimer); }
+      $("roomRoundClock").textContent = "Match started · room closed to new players.";
       const delay = Math.max(0, Number(payload.startAt) - Date.now());
       $("roomRoundClock").textContent = "Round starts in 3 seconds...";
       startRoomClock(Number(payload.startAt), Number(payload.durationSeconds) || 35);
@@ -2328,11 +2335,15 @@ render();
     }
   }
 
-  async function connectToRoom(code, hostId, isHost) {
+  async function connectToRoom(code, hostId, isHost, options = {}) {
     if (room.channel) await leaveRoom(false);
     room.code = code;
     room.hostId = hostId;
     room.isHost = isHost;
+    room.roomId = options.roomId || null;
+    room.isPublic = !!options.isPublic;
+    room.lobbyDeadline = options.countdownStartedAt ? new Date(options.countdownStartedAt).getTime() + 30000 : null;
+    room.roomStatus = options.status || "waiting";
     room.players = {};
     room.scores = {};
     const channel = supabaseClient.channel("focusforge-room-" + code, {
@@ -2357,6 +2368,7 @@ render();
         });
         room.players = next;
         roomRoster();
+        if (room.isPublic) refreshPublicLobby();
       })
       .on("broadcast", { event: "room_event" }, ({ payload }) => {
         handleRoomEvent(payload);
@@ -2370,7 +2382,8 @@ render();
           joined_at: new Date().toISOString()
         });
         updateRoomUI();
-        roomText("Connected! Share the room code with your friends.");
+        roomText(room.isPublic ? "You are in a public match. Waiting for players..." : "Connected! Share the room code with your friends.");
+        if (room.isPublic) refreshPublicLobby();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         roomText("Could not connect to the room. Check your connection and try again.");
       }
@@ -2381,14 +2394,25 @@ render();
   async function leaveRoom(showMessage = true) {
     clearTimeout(room.countdown);
     clearInterval(room.roundTimer);
+    clearInterval(room.lobbyTimer);
+    const oldRoomId = room.roomId;
+    const wasPublic = room.isPublic;
     if (room.channel) {
       const old = room.channel;
       room.channel = null;
       await supabaseClient.removeChannel(old);
     }
+    if (wasPublic && oldRoomId && currentUser) {
+      const { error } = await supabaseClient.rpc("leave_public_room", { p_room_id: oldRoomId });
+      if (error) console.warn("Public room leave cleanup:", error.message);
+    }
     room.code = null;
     room.hostId = null;
     room.isHost = false;
+    room.roomId = null;
+    room.isPublic = false;
+    room.lobbyDeadline = null;
+    room.roomStatus = "waiting";
     room.players = {};
     room.scores = {};
     updateRoomUI();
@@ -2401,6 +2425,91 @@ render();
     const bytes = new Uint8Array(6);
     crypto.getRandomValues(bytes);
     return Array.from(bytes, byte => chars[byte % chars.length]).join("");
+  }
+
+
+  async function refreshPublicLobby() {
+    if (!room.isPublic || !room.roomId || !room.channel) return;
+    const { data, error } = await supabaseClient
+      .from("multiplayer_rooms")
+      .select("player_count,status,countdown_started_at,started_at")
+      .eq("id", room.roomId)
+      .maybeSingle();
+    if (error || !data) return;
+    room.roomStatus = data.status;
+    const count = Number(data.player_count) || 0;
+    const startAt = data.countdown_started_at ? new Date(data.countdown_started_at).getTime() : null;
+    room.lobbyDeadline = startAt ? startAt + 30000 : null;
+    clearInterval(room.lobbyTimer);
+    if (data.status === "started") {
+      $("roomRoundClock").textContent = "Match started · room closed to new players.";
+      return;
+    }
+    if (count < 2 || !room.lobbyDeadline) {
+      $("roomRoundClock").textContent = "Public lobby · " + count + "/5 players · waiting for at least 2 players.";
+      return;
+    }
+    const tick = () => {
+      const seconds = Math.max(0, Math.ceil((room.lobbyDeadline - Date.now()) / 1000));
+      $("roomRoundClock").textContent = "Public lobby · " + count + "/5 players · game starts in " + seconds + "s";
+      if (seconds <= 0) {
+        clearInterval(room.lobbyTimer);
+        beginPublicMatch();
+      }
+    };
+    tick();
+    room.lobbyTimer = setInterval(tick, 250);
+  }
+
+  async function beginPublicMatch() {
+    if (!room.isPublic || !room.roomId || !room.channel) return;
+    const { data, error } = await supabaseClient.rpc("start_public_room", { p_room_id: room.roomId });
+    if (error) {
+      roomText(error.message || "Could not start the public match.");
+      return;
+    }
+    if (data?.started_by_me) {
+      const startAt = Date.now() + 3000;
+      await sendRoomEvent("round_start", {
+        startAt, worldIndex: 0, levelIndex: 0, durationSeconds: 35
+      });
+      handleRoomEvent({ event: "round_start", startAt, worldIndex: 0, levelIndex: 0, durationSeconds: 35 });
+    } else if (data?.status === "started") {
+      $("roomRoundClock").textContent = "Match started · room closed to new players.";
+    }
+  }
+
+  async function joinPublicRoom() {
+    if (!currentUser) {
+      showAuth("Please sign in before joining public matchmaking.");
+      return;
+    }
+    $("joinPublicRoomBtn").disabled = true;
+    roomText("Finding the public room with the fewest players...");
+    try {
+      if (room.channel) await leaveRoom(false);
+      const { data, error } = await supabaseClient.rpc("join_public_room");
+      if (error) throw error;
+      if (!data?.room_code) throw new Error("No public room could be found. Please try again.");
+      await connectToRoom(
+        data.room_code,
+        data.host_user_id,
+        data.host_user_id === currentUser.id,
+        {
+          roomId: data.room_id,
+          isPublic: true,
+          countdownStartedAt: data.countdown_started_at,
+          status: data.status
+        }
+      );
+      $("roomRoundClock").textContent = "Public lobby · " + data.player_count + "/5 players.";
+      refreshPublicLobby();
+    } catch (error) {
+      console.error("Public matchmaking error:", error);
+      roomText(error.message || "Could not join public matchmaking.");
+    } finally {
+      $("joinPublicRoomBtn").disabled = false;
+    }
   }
 
   async function createRoom() {
@@ -2485,6 +2594,7 @@ render();
     });
   };
 
+  $("joinPublicRoomBtn").addEventListener("click", joinPublicRoom);
   $("createRoomBtn").addEventListener("click", createRoom);
   $("joinRoomBtn").addEventListener("click", joinRoom);
   $("startRoomRoundBtn").addEventListener("click", startRoomRound);
