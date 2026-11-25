@@ -521,7 +521,8 @@ body.mission-mode .overlay {z-index:9999}
   </button>
 
   <div id="lazarVerifyBox" hidden>
-    <p style="margin:12px 0 6px;">Lazar students: enter your email and answer the school question to continue.</p>
+    <p style="margin:12px 0 6px;">Lazar students: enter your email and answer this question to continue:</p>
+    <p><strong>Who is the French teacher listed in LMS?</strong></p>
     <input id="lazarAnswerInput" type="text"
       placeholder="Answer the Lazar verification question"
       autocomplete="off">
@@ -753,6 +754,7 @@ let currentUser = null;
 let currentUsername = null;
 let lazarMode = false;
 let lazarVerified = false;
+let lazarClaimInProgress = false;
 
 const LAZAR_TOKEN_KEY = "focusforge-lazar-verification-token";
 const LAZAR_EMAIL_KEY = "focusforge-lazar-verification-email";
@@ -792,12 +794,16 @@ function setLazarMode(enabled) {
 }
 
 async function claimPendingLazarVerification(user) {
+  if (lazarClaimInProgress) return false;
+
   const token = sessionStorage.getItem(LAZAR_TOKEN_KEY);
   const savedEmail = sessionStorage.getItem(LAZAR_EMAIL_KEY);
 
   if (!token || !user?.email || user.email.trim().toLowerCase() !== savedEmail) {
     return false;
   }
+
+  lazarClaimInProgress = true;
 
   try {
     const { data, error } = await supabaseClient.functions.invoke(
@@ -821,6 +827,8 @@ async function claimPendingLazarVerification(user) {
     authMessage.textContent =
       error.message || "Lazar verification could not be completed.";
     return false;
+  } finally {
+    lazarClaimInProgress = false;
   }
 }
 
