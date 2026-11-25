@@ -42,6 +42,9 @@ begin
     raise exception 'Please sign in before joining public matchmaking.';
   end if;
 
+  -- Serialize matchmaking decisions, including the no-room-yet case.
+  perform pg_advisory_xact_lock(20261125);
+
   -- Finish any countdown that expired even if its host disconnected.
   update public.multiplayer_rooms
      set status = 'started', started_at = coalesce(started_at, now())
@@ -160,7 +163,8 @@ begin
      where id = p_room_id and is_public = true;
   else
     update public.multiplayer_rooms
-       set player_count = v_count
+       set player_count = v_count,
+           countdown_started_at = case when v_count < 2 then null else countdown_started_at end
      where id = p_room_id and is_public = true and status = 'waiting';
   end if;
 end;
