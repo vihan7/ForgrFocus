@@ -1321,7 +1321,7 @@ async function loadLeaderboard() {
 
     const { data, error } = await supabaseClient
       .from("leaderboard_entries")
-      .select("username,is_anonymous,best_score,best_level")
+      .select("user_id,username,is_anonymous,best_score,best_level")
       .order("best_score", {ascending:false})
       .limit(50);
 
@@ -1376,7 +1376,9 @@ async function loadLeaderboard() {
 
       const name = player.is_anonymous
         ? "Anonymous Player"
-        : player.username;
+        : player.user_id === currentUser.id
+          ? "YOU"
+          : (player.username || "Player");
 
       const rank = index + 1;
 
@@ -2380,6 +2382,7 @@ render();
       for (let attempt = 0; attempt < 3 && !created; attempt++) {
         const { error } = await supabaseClient.from("multiplayer_rooms").insert({
           room_code: code,
+          host_id: currentUser.id,
           host_user_id: currentUser.id
         });
         if (!error) created = true;
