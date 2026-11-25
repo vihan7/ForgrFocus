@@ -972,7 +972,7 @@ $("verifyLazarBtn").onclick = async () => {
 
   try {
     const { data, error } = await supabaseClient.functions.invoke(
-      "verify-lazar",
+      "smooth-action",
       { body: { answer } }
     );
 
