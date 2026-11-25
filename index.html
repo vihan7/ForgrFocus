@@ -952,7 +952,14 @@ $("showAuth").onclick = () => showAuth();
 $("hideAuth").onclick = hideAuth;
 
 $("lazarModeBtn").onclick = () => {
-  setLazarMode(!lazarMode);
+  const enableLazarMode = !lazarMode;
+  if (enableLazarMode) {
+    // A session-stored token may already be consumed or expired.
+    // Always start a fresh Lazar verification when entering this mode.
+    sessionStorage.removeItem(LAZAR_TOKEN_KEY);
+    lazarVerified = false;
+  }
+  setLazarMode(enableLazarMode);
   if (lazarMode && !lazarVerified) $("lazarAnswerInput").focus();
   else if (lazarMode) $("usernameInput").focus();
   else $("emailInput").focus();
@@ -1138,7 +1145,17 @@ $("signupBtn").onclick = async () => {
     }
   } catch (error) {
     console.error("Signup error:", error);
-    authMessage.textContent = error.message || "Signup failed. Please try again.";
+    if (lazarMode) {
+      // Account creation consumes the one-time token; recover by requiring a new verification.
+      sessionStorage.removeItem(LAZAR_TOKEN_KEY);
+      setLazarMode(true);
+      authMessage.textContent =
+        (error.message || "Signup failed.") +
+        " Please answer the Lazar verification question again.";
+      $("lazarAnswerInput").focus();
+    } else {
+      authMessage.textContent = error.message || "Signup failed. Please try again.";
+    }
   } finally {
     $("signupBtn").disabled = false;
   }
