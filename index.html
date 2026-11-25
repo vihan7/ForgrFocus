@@ -474,6 +474,41 @@ body.mission-mode .overlay {z-index:9999}
   .level {min-height:54px;font-size:.8rem}
   .tile {min-height:60px;font-size:2rem}
 }
+
+/* MULTIPLAYER ROOMS */
+.room-panel {
+  margin:0 0 18px;
+  padding:18px;
+  border:1px solid rgba(103,232,249,.28);
+  border-radius:22px;
+  background:rgba(18,27,50,.94);
+}
+.room-panel h2 {margin:0 0 6px;font-size:1.1rem}
+.room-controls {display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.room-controls input {
+  flex:1;min-width:130px;padding:11px 12px;border-radius:10px;
+  border:1px solid #526587;background:#0b1428;color:white;
+  font-size:1rem;text-transform:uppercase;
+}
+.room-meta {font-size:.82rem;color:var(--muted);margin-top:10px}
+.room-roster {
+  display:grid;gap:7px;margin-top:12px;
+  max-height:180px;overflow:auto;
+}
+.room-player {
+  display:flex;justify-content:space-between;gap:10px;
+  padding:9px 11px;border:1px solid rgba(255,255,255,.09);
+  border-radius:12px;background:#101a31;font-size:.85rem;
+}
+.room-player b {color:var(--gold)}
+.room-code {
+  display:inline-block;padding:5px 10px;border-radius:9px;
+  background:#0b1428;color:var(--cyan);font-weight:900;
+  letter-spacing:2px;font-size:1.1rem;
+}
+.room-message {min-height:22px;margin-top:10px;color:var(--gold);font-size:.85rem}
+.room-panel .host-only[hidden], .room-panel [hidden] {display:none!important}
+
 </style>
 </head>
 
@@ -553,6 +588,28 @@ body.mission-mode .overlay {z-index:9999}
   </div>
 
   <div class="auth-message" id="authMessage" role="status"></div>
+</section>
+
+
+<section class="room-panel" id="multiplayerPanel">
+  <h2>👥 Multiplayer Rooms</h2>
+  <p>Create a private room or join a friend with a six-character room code. Everyone needs a FocusForge account.</p>
+  <div class="room-controls" id="roomEntryControls">
+    <button class="btn primary" id="createRoomBtn" type="button">＋ Create room</button>
+    <input id="roomCodeInput" maxlength="6" placeholder="ROOM CODE" aria-label="Room code">
+    <button class="btn secondary" id="joinRoomBtn" type="button">Join room</button>
+  </div>
+  <div id="roomActive" hidden>
+    <p class="room-meta">Room code: <span class="room-code" id="activeRoomCode">------</span></p>
+    <p class="room-meta" id="roomHostLabel"></p>
+    <div class="room-roster" id="roomRoster"></div>
+    <div class="room-controls">
+      <button class="btn primary" id="startRoomRoundBtn" type="button" hidden>▶ Start timed round</button>
+      <button class="btn secondary" id="leaveRoomBtn" type="button">Leave room</button>
+    </div>
+    <p class="room-meta" id="roomRoundClock">Waiting for the host to start a round.</p>
+  </div>
+  <div class="room-message" id="roomMessage" role="status">Sign in to create or join a room.</div>
 </section>
 
 <div class="hero">
@@ -1855,6 +1912,10 @@ function choose(index,button) {
   button.disabled=true;
   stats();
 
+  if (typeof window.focusForgeRoomScore === "function") {
+    window.focusForgeRoomScore(score, false);
+  }
+
   const remaining =
     targets.filter(target=>!selected.has(target)).length;
 
@@ -1942,6 +2003,18 @@ function start() {
   },1000);
 }
 
+
+/* Expose a consistent campaign level for synchronized room starts. */
+window.focusForgeStartRoomLevel = (worldIndex, levelIndex) => {
+  if (!currentUser) return;
+  wi = Math.max(0, Math.min(2, Number(worldIndex) || 0));
+  li = Math.max(0, Math.min(4, Number(levelIndex) || 0));
+  stop();
+  exitMissionMode();
+  render();
+  start();
+};
+
 /* =========================================
    FINISH LEVEL
 ========================================= */
@@ -2016,6 +2089,11 @@ function finish(success) {
   }
 
   stats();
+
+
+  if (typeof window.focusForgeRoomScore === "function") {
+    window.focusForgeRoomScore(score, true);
+  }
 
   $("overlay").classList.add("show");
 }
@@ -2139,6 +2217,272 @@ $("resetProgress").onclick=()=>{
 render();
 
 })(); // End game
+
+
+/* =========================================
+   MULTIPLAYER ROOMS
+   Uses Supabase Realtime Presence + Broadcast.
+========================================= */
+(() => {
+  const room = {
+    channel: null,
+    code: null,
+    hostId: null,
+    isHost: false,
+    players: {},
+    scores: {},
+    countdown: null,
+    roundTimer: null
+  };
+
+  const roomText = (message) => { $("roomMessage").textContent = message; };
+
+  function roomRoster() {
+    const roster = $("roomRoster");
+    roster.innerHTML = "";
+    const entries = Object.values(room.players);
+    if (!entries.length) {
+      roster.textContent = "Waiting for players to join...";
+      return;
+    }
+    entries.sort((a,b) => (b.score || 0) - (a.score || 0));
+    entries.forEach((player,index) => {
+      const row = document.createElement("div");
+      row.className = "room-player";
+      const name = document.createElement("span");
+      name.textContent = (index === 0 && (player.score || 0) > 0 ? "🏅 " : "") + player.username;
+      const points = document.createElement("b");
+      points.textContent = (player.score || 0) + " pts";
+      row.append(name, points);
+      roster.appendChild(row);
+    });
+  }
+
+  function updateRoomUI() {
+    const inRoom = !!room.channel;
+    $("roomEntryControls").hidden = inRoom;
+    $("roomActive").hidden = !inRoom;
+    $("activeRoomCode").textContent = room.code || "------";
+    $("roomHostLabel").textContent = room.isHost
+      ? "You are the room host."
+      : "The room host controls when the round starts.";
+    $("startRoomRoundBtn").hidden = !room.isHost;
+    roomRoster();
+  }
+
+  async function sendRoomEvent(event, payload) {
+    if (!room.channel) return;
+    await room.channel.send({
+      type: "broadcast",
+      event: "room_event",
+      payload: { event, ...payload }
+    });
+  }
+
+  function startRoomClock(startAt) {
+    clearInterval(room.roundTimer);
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((startAt + 35000 - Date.now()) / 1000));
+      $("roomRoundClock").textContent = remaining > 0
+        ? "Timed round in progress · " + remaining + "s remaining"
+        : "Round timer finished. Check the scores above.";
+      if (remaining <= 0) clearInterval(room.roundTimer);
+    };
+    tick();
+    room.roundTimer = setInterval(tick, 250);
+  }
+
+  async function handleRoomEvent(payload) {
+    if (!payload || !payload.event) return;
+    if (payload.event === "round_start") {
+      const delay = Math.max(0, Number(payload.startAt) - Date.now());
+      $("roomRoundClock").textContent = "Round starts in 3 seconds...";
+      startRoomClock(Number(payload.startAt));
+      clearTimeout(room.countdown);
+      room.countdown = setTimeout(() => {
+        if (room.channel) window.focusForgeStartRoomLevel(0, 0);
+      }, delay);
+    } else if (payload.event === "score_update") {
+      room.scores[payload.userId] = Number(payload.score) || 0;
+      if (room.players[payload.userId]) room.players[payload.userId].score = room.scores[payload.userId];
+      roomRoster();
+      if (payload.final) {
+        $("roomRoundClock").textContent = "A player has finished their round.";
+      }
+    } else if (payload.event === "round_end") {
+      $("roomRoundClock").textContent = "The host ended the round.";
+    }
+  }
+
+  async function connectToRoom(code, hostId, isHost) {
+    if (room.channel) await leaveRoom(false);
+    room.code = code;
+    room.hostId = hostId;
+    room.isHost = isHost;
+    room.players = {};
+    room.scores = {};
+    const channel = supabaseClient.channel("focusforge-room-" + code, {
+      config: {
+        broadcast: { self: true },
+        presence: { key: currentUser.id }
+      }
+    });
+    room.channel = channel;
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const next = {};
+        Object.values(state).flat().forEach(p => {
+          if (p.user_id) {
+            next[p.user_id] = {
+              username: p.username || "Player",
+              score: room.scores[p.user_id] || 0
+            };
+          }
+        });
+        room.players = next;
+        roomRoster();
+      })
+      .on("broadcast", { event: "room_event" }, ({ payload }) => {
+        handleRoomEvent(payload);
+      });
+
+    channel.subscribe(async status => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          user_id: currentUser.id,
+          username: currentUsername || "Player",
+          joined_at: new Date().toISOString()
+        });
+        updateRoomUI();
+        roomText("Connected! Share the room code with your friends.");
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        roomText("Could not connect to the room. Check your connection and try again.");
+      }
+    });
+    updateRoomUI();
+  }
+
+  async function leaveRoom(showMessage = true) {
+    clearTimeout(room.countdown);
+    clearInterval(room.roundTimer);
+    if (room.channel) {
+      const old = room.channel;
+      room.channel = null;
+      await supabaseClient.removeChannel(old);
+    }
+    room.code = null;
+    room.hostId = null;
+    room.isHost = false;
+    room.players = {};
+    room.scores = {};
+    updateRoomUI();
+    $("roomRoundClock").textContent = "Waiting for the host to start a round.";
+    if (showMessage) roomText("You left the room.");
+  }
+
+  function generateRoomCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => chars[byte % chars.length]).join("");
+  }
+
+  async function createRoom() {
+    if (!currentUser) {
+      showAuth("Please sign in before creating a multiplayer room.");
+      return;
+    }
+    $("createRoomBtn").disabled = true;
+    roomText("Creating your room...");
+    try {
+      let code = generateRoomCode();
+      let created = false;
+      for (let attempt = 0; attempt < 3 && !created; attempt++) {
+        const { error } = await supabaseClient.from("multiplayer_rooms").insert({
+          room_code: code,
+          host_user_id: currentUser.id
+        });
+        if (!error) created = true;
+        else if (error.code !== "23505") throw error;
+        else code = generateRoomCode();
+      }
+      if (!created) throw new Error("Could not generate a unique room code. Try again.");
+      await connectToRoom(code, currentUser.id, true);
+    } catch (error) {
+      console.error("Create room error:", error);
+      roomText(error.message || "Could not create the room. Run the multiplayer SQL setup first.");
+    } finally {
+      $("createRoomBtn").disabled = false;
+    }
+  }
+
+  async function joinRoom() {
+    if (!currentUser) {
+      showAuth("Please sign in before joining a multiplayer room.");
+      return;
+    }
+    const code = $("roomCodeInput").value.trim().toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+      roomText("Enter a valid six-character room code.");
+      return;
+    }
+    $("joinRoomBtn").disabled = true;
+    roomText("Looking for room...");
+    try {
+      const { data, error } = await supabaseClient
+        .from("multiplayer_rooms")
+        .select("room_code,host_user_id")
+        .eq("room_code", code)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Room not found or expired. Check the code with the host.");
+      await connectToRoom(code, data.host_user_id, data.host_user_id === currentUser.id);
+    } catch (error) {
+      console.error("Join room error:", error);
+      roomText(error.message || "Could not join the room.");
+    } finally {
+      $("joinRoomBtn").disabled = false;
+    }
+  }
+
+  async function startRoomRound() {
+    if (!room.channel || !room.isHost) return;
+    const startAt = Date.now() + 3000;
+    room.scores = {};
+    Object.values(room.players).forEach(player => player.score = 0);
+    roomRoster();
+    await sendRoomEvent("round_start", { startAt, worldIndex: 0, levelIndex: 0 });
+  }
+
+  window.focusForgeRoomScore = (score, final) => {
+    if (!room.channel || !currentUser) return;
+    const value = Number(score) || 0;
+    room.scores[currentUser.id] = value;
+    if (room.players[currentUser.id]) room.players[currentUser.id].score = value;
+    roomRoster();
+    sendRoomEvent("score_update", {
+      userId: currentUser.id,
+      score: value,
+      final: !!final
+    });
+  };
+
+  $("createRoomBtn").addEventListener("click", createRoom);
+  $("joinRoomBtn").addEventListener("click", joinRoom);
+  $("startRoomRoundBtn").addEventListener("click", startRoomRound);
+  $("leaveRoomBtn").addEventListener("click", () => leaveRoom());
+  $("roomCodeInput").addEventListener("input", event => {
+    event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0,6);
+  });
+
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    if (!session?.user && room.channel) leaveRoom();
+    if (!session?.user) roomText("Sign in to create or join a room.");
+  });
+})();
 
 checkSession();
 
