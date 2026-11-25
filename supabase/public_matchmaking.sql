@@ -50,6 +50,14 @@ begin
      and countdown_started_at is not null
      and countdown_started_at <= now() - interval '30 seconds';
 
+  -- Remove this user's membership from completed or expired public matches.
+  delete from public.public_room_members m
+   using public.multiplayer_rooms r
+   where m.room_id = r.id
+     and m.user_id = v_user
+     and r.is_public = true
+     and (r.status = 'started' or r.expires_at <= now());
+
   -- Reuse an existing membership if this user retries the request.
   select r.* into v_room
     from public.public_room_members m
@@ -79,7 +87,7 @@ begin
      and player_count < 5
      and expires_at > now()
    order by player_count asc, created_at asc
-   for update skip locked
+   for update
    limit 1;
 
   if not found then
