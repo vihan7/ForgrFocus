@@ -735,8 +735,8 @@ body.mission-mode .level-timer {display:block}
   <section class="tip">
     <h3>🕹️ How to play</h3>
     <p>
-      Read the target rule. Select every tile matching BOTH the color
-      and shape. Wrong picks cost 2 seconds. Finish before time runs out.
+      Each game has 5 puzzle rounds. Correct answers earn fewer points
+      as time runs down; wrong answers cost 50 points and 2 seconds.
     </p>
   </section>
 
@@ -1610,6 +1610,8 @@ let wi=
     targets=[],
     selected=new Set(),
     puzzleDone=false,
+    roundsCompleted=0,
+    levelDuration=0,
     won=false;
 
 const cleared = (w,l) => !!save.cleared[key(w,l)];
@@ -1729,6 +1731,8 @@ function stop() {
   targets=[];
   selected=new Set();
   puzzleDone=false;
+  roundsCompleted=0;
+  levelDuration=0;
   won=false;
 
 }
@@ -1947,7 +1951,7 @@ function puzzle() {
   });
 
   $("status").textContent =
-    "Find all " + level[4] + " targets!";
+    "Round " + (roundsCompleted + 1) + "/5 · Find all " + level[4] + " targets!";
 
   $("status").className="status";
 
@@ -1968,13 +1972,17 @@ function choose(index,button) {
   if(tiles[index].match) {
 
     correct++;
-    score+=100;
+    const pointsForThisTarget = Math.max(
+      10,
+      Math.ceil(100 * (timeLeft / Math.max(1, levelDuration)))
+    );
+    score += pointsForThisTarget;
     button.className="tile correct";
     button.textContent="✓";
 
   } else {
 
-    score=Math.max(0,score-25);
+    score=Math.max(0,score-50);
     timeLeft=Math.max(0,timeLeft-2);
     if (sharedLevelDeadline !== null) sharedLevelDeadline -= 2000;
     button.className="tile wrong";
@@ -2000,7 +2008,15 @@ function choose(index,button) {
       tile.disabled=true;
     });
 
-    finish(true);
+    roundsCompleted++;
+    if(roundsCompleted < 5) {
+      $("status").textContent =
+        "Round " + roundsCompleted + "/5 complete! Next round...";
+      $("status").className="status good";
+      puzzle();
+    } else {
+      finish(true);
+    }
 
   } else {
 
@@ -2059,6 +2075,8 @@ function start(sharedStartAt = null) {
   active=true;
 
   const level=worlds[wi].levels[li];
+  levelDuration=level[2];
+  roundsCompleted=0;
   sharedLevelDeadline = sharedStartAt !== null
     ? Number(sharedStartAt) + level[2] * 1000
     : Date.now() + level[2] * 1000;
