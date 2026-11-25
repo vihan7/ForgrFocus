@@ -2536,20 +2536,38 @@ render();
   }
 
   async function beginPublicMatch() {
-    if (!room.isPublic || !room.roomId || !room.channel) return;
-    const { data, error } = await supabaseClient.rpc("start_public_room", { p_room_id: room.roomId });
-    if (error) {
-      roomText(error.message || "Could not start the public match.");
-      return;
-    }
-    if (data?.started_by_me) {
-      const startAt = Date.now() + 3000;
-      await sendRoomEvent("round_start", {
-        startAt, worldIndex: 0, levelIndex: 0, durationSeconds: 35
-      });
-      handleRoomEvent({ event: "round_start", startAt, worldIndex: 0, levelIndex: 0, durationSeconds: 35 });
-    } else if (data?.status === "started") {
-      $("roomRoundClock").textContent = "Match started · room closed to new players.";
+    if (!room.isPublic || !room.roomId || !room.channel || room.publicStartInProgress) return;
+    room.publicStartInProgress = true;
+    try {
+      let result;
+      // The browser countdown and Supabase's clock can differ slightly.
+      // Retry briefly if the database has not quite reached the 30-second mark.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        result = await supabaseClient.rpc("start_public_room", { p_room_id: room.roomId });
+        if (!result.error) break;
+        const message = result.error.message || "";
+        if (!message.includes("30-second lobby countdown has not finished") || attempt === 5) {
+          throw result.error;
+        }
+        $("roomRoundClock").textContent = "Lobby countdown finished · starting match...";
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!room.isPublic || !room.roomId || !room.channel) return;
+      }
+      const { data } = result;
+      if (data?.started_by_me) {
+        const startAt = Date.now() + 3000;
+        await sendRoomEvent("round_start", {
+          startAt, worldIndex: 0, levelIndex: 0, durationSeconds: 35
+        });
+        handleRoomEvent({ event: "round_start", startAt, worldIndex: 0, levelIndex: 0, durationSeconds: 35 });
+      } else if (data?.status === "started") {
+        $("roomRoundClock").textContent = "Match started · waiting for the round signal...";
+      }
+    } catch (error) {
+      console.error("Public match start error:", error);
+      roomText(error.message || "Could not start the public match. Please leave and rejoin.");
+    } finally {
+      room.publicStartInProgress = false;
     }
   }
 
