@@ -193,7 +193,7 @@ begin
     from public.public_room_members where room_id = p_room_id;
 
   if v_room.status = 'started' then
-    return jsonb_build_object('status','started','player_count',v_count);
+    return jsonb_build_object('status','started','player_count',v_count,'started_by_me',false);
   end if;
 
   if v_count < 2 then
@@ -213,7 +213,8 @@ begin
 
   return jsonb_build_object(
     'status', v_room.status, 'started_at', v_room.started_at,
-    'player_count', v_count, 'room_code', v_room.room_code
+    'player_count', v_count, 'room_code', v_room.room_code,
+    'started_by_me', true
   );
 end;
 $$;
