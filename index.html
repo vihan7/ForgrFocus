@@ -86,6 +86,11 @@ p {color:var(--muted);line-height:1.55;margin:0}
 .rank {padding:12px 18px;text-align:center}
 .rank b {display:block;color:var(--gold)}
 .rank small {color:var(--muted)}
+.xp-card {margin-top:12px;padding:16px;border:1px solid rgba(255,209,102,.25);border-radius:20px;background:rgba(18,28,51,.80)}
+.xp-card h3 {margin:0 0 10px;font-size:.95rem}
+.xp-total {font-size:1.65rem;font-weight:900;color:var(--gold)}
+.xp-rank {float:right;color:var(--cyan);font-weight:850;font-size:.82rem}
+.xp-card .bar {margin-top:10px}
 
 .layout {
   display:grid;
@@ -718,6 +723,13 @@ body.mission-mode .level-timer {display:block}
     <p class="muted" id="progressText" style="margin-top:8px">
       Clear levels to unlock more.
     </p>
+  </section>
+
+  <section class="xp-card" aria-live="polite">
+    <h3>✨ XP &amp; Rank <span class="xp-rank" id="xpRank">ROOKIE</span></h3>
+    <div class="xp-total"><span id="xpTotal">0</span> XP</div>
+    <div class="bar"><div class="fill" id="xpFill"></div></div>
+    <p class="muted" id="xpProgress" style="margin-top:8px">300 XP to Bronze</p>
   </section>
 
   <section class="tip">
@@ -1553,7 +1565,9 @@ const key = (w,l) => w + "-" + l;
 let save = {
   cleared:{},
   stars:{},
-  best:0
+  best:0,
+  xp:0,
+  xpLevels:{}
 };
 
 try {
@@ -1568,7 +1582,22 @@ try {
   console.warn("Could not load saved campaign.",error);
 }
 
-let wi=0,
+// Keep older saved games compatible and award starting XP for levels
+// that were already cleared before the XP system was introduced.
+if (!Number.isFinite(save.xp)) {
+  save.xp = 0;
+  save.xpLevels = {};
+  Object.entries(save.cleared || {}).forEach(([levelKey, isCleared]) => {
+    if (!isCleared) return;
+    const earnedStars = Number(save.stars?.[levelKey]) || 0;
+    save.xp += 100 + earnedStars * 25;
+    save.xpLevels[levelKey] = true;
+  });
+}
+if (!save.xpLevels || typeof save.xpLevels !== "object") save.xpLevels = {};
+if (!Number.isFinite(save.best)) save.best = 0;
+
+let wi=
     li=0,
     active=false,
     timer=null,
@@ -1618,11 +1647,44 @@ function persist() {
    PLAYER STATS
 ========================================= */
 
+function xpRankInfo(xp) {
+  const ranks = [
+    {name:"ROOKIE",min:0,next:300},
+    {name:"BRONZE",min:300,next:750},
+    {name:"SILVER",min:750,next:1300},
+    {name:"GOLD",min:1300,next:2000},
+    {name:"PLATINUM",min:2000,next:2600},
+    {name:"DIAMOND",min:2600,next:null}
+  ];
+  return [...ranks].reverse().find(rank => xp >= rank.min) || ranks[0];
+}
+
+function updateXpDisplay() {
+  const xp = Math.max(0, Number(save.xp) || 0);
+  const rank = xpRankInfo(xp);
+  $("xpTotal").textContent = xp.toLocaleString();
+  $("xpRank").textContent = rank.name;
+
+  if (rank.next === null) {
+    $("xpFill").style.width = "100%";
+    $("xpProgress").textContent = "Highest XP rank reached!";
+    return;
+  }
+
+  const progress = xp - rank.min;
+  const range = rank.next - rank.min;
+  $("xpFill").style.width = Math.min(100, progress / range * 100) + "%";
+  $("xpProgress").textContent =
+    (rank.next - xp).toLocaleString() + " XP to " +
+    ({300:"Bronze",750:"Silver",1300:"Gold",2000:"Platinum",2600:"Diamond"}[rank.next]);
+}
+
 function stats() {
 
   const st = starTotal();
   const ct = clearedTotal();
 
+  updateXpDisplay();
   $("stars").textContent = st + " / 45";
   $("best").textContent = save.best;
   $("clearedCount").textContent = ct + " / 15 cleared";
@@ -2056,12 +2118,21 @@ function finish(success) {
       timeLeft>=worlds[wi].levels[li][2]*.45 && accuracy>=.85 ? 3 :
       accuracy>=.65 ? 2 : 1;
 
-    save.cleared[key(wi,li)]=true;
+    const levelKey = key(wi,li);
+    const firstClear = !save.cleared[levelKey];
 
-    save.stars[key(wi,li)]=Math.max(
-      save.stars[key(wi,li)]||0,
+    save.cleared[levelKey]=true;
+
+    save.stars[levelKey]=Math.max(
+      save.stars[levelKey]||0,
       stars
     );
+
+    const xpEarned = firstClear ? 100 + stars * 25 : 0;
+    if (firstClear && !save.xpLevels[levelKey]) {
+      save.xp = (Number(save.xp) || 0) + xpEarned;
+      save.xpLevels[levelKey] = true;
+    }
 
     save.best=Math.max(save.best,score);
 
@@ -2080,7 +2151,7 @@ function finish(success) {
     $("resultTitle").textContent="LEVEL CLEARED!";
 
     $("resultText").textContent=
-      `You earned ${stars} star(s), scored ${score}, and had ${Math.round(accuracy*100)}% accuracy. Your progress is saved.`;
+      `You earned ${stars} star(s), scored ${score}, and had ${Math.round(accuracy*100)}% accuracy. ${xpEarned ? "You earned " + xpEarned + " XP!" : "This level was already cleared, so no bonus XP this time."} Your total is ${save.xp} XP.`;
 
     $("continue").textContent =
       hasNext() ? "Next level ➜" : "Campaign complete";
@@ -2210,7 +2281,9 @@ $("resetProgress").onclick=()=>{
     save={
       cleared:{},
       stars:{},
-      best:0
+      best:0,
+      xp:0,
+      xpLevels:{}
     };
 
     persist();
