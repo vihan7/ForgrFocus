@@ -87,8 +87,8 @@ begin
      and player_count < 5
      and expires_at > now()
    order by player_count asc, created_at asc
-   for update
-   limit 1;
+   limit 1
+   for update;
 
   if not found then
     loop
