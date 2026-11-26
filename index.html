@@ -1093,9 +1093,17 @@ $("signupBtn").onclick = async () => {
     return;
   }
 
-  if (lazarMode && password.length < 8) {
-    authMessage.textContent = "Choose a password with at least 8 characters.";
-    return;
+  if (lazarMode) {
+    if (password.length < 8) {
+      authMessage.textContent = "Password must be at least 8 characters long.";
+      return;
+    }
+    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) ||
+        !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      authMessage.textContent =
+        "Password must include a lowercase letter, uppercase letter, number, and special character.";
+      return;
+    }
   }
 
   authMessage.textContent = "Creating your account...";
