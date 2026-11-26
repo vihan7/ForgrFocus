@@ -1167,9 +1167,16 @@ $("signupBtn").onclick = async () => {
       // Account creation consumes the one-time token; recover by requiring a new verification.
       sessionStorage.removeItem(LAZAR_TOKEN_KEY);
       setLazarMode(true);
-      authMessage.textContent =
-        (error.message || "Signup failed.") +
-        " Please answer the Lazar verification question again.";
+
+      const errorText = String(error?.message || error || "");
+      const isUsernameTaken =
+        /username.{0,40}(already (taken|exists)|in use|duplicate)|duplicate.{0,40}username|unique.{0,40}username/i.test(errorText);
+
+      authMessage.textContent = isUsernameTaken
+        ? "That Lazar username is already taken. Please choose a different username and answer the verification question again."
+        : "Lazar signup couldn't be completed. " +
+          (errorText || "Please try again.") +
+          " Please answer the Lazar verification question again.";
       $("lazarAnswerInput").focus();
     } else {
       authMessage.textContent = error.message || "Signup failed. Please try again.";
