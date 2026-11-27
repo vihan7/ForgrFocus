@@ -2563,8 +2563,17 @@ function finish(success) {
 
     const levelKey = key(wi,li);
     const firstClear = !save.cleared[levelKey];
+    const completedLevelName = worlds[wi].levels[li][0];
+    const worldWasAlreadyComplete = worlds[wi].levels.every((_, levelIndex) =>
+      Boolean(save.cleared[key(wi,levelIndex)])
+    );
 
     save.cleared[levelKey]=true;
+
+    const worldJustCompleted = !worldWasAlreadyComplete &&
+      worlds[wi].levels.every((_, levelIndex) =>
+        Boolean(save.cleared[key(wi,levelIndex)])
+      );
 
     save.stars[levelKey]=Math.max(
       save.stars[levelKey]||0,
@@ -2591,9 +2600,16 @@ function finish(success) {
     $("resultIcon").textContent =
       stars===3 ? "🏆" : stars===2 ? "🌟" : "⭐";
 
-    $("resultTitle").textContent="LEVEL CLEARED!";
+    $("resultTitle").textContent = worldJustCompleted
+      ? "WORLD COMPLETED! 🎉"
+      : "LEVEL COMPLETED!";
 
-    $("resultText").textContent=
+    const completionMessage = worldJustCompleted
+      ? `You completed ${worlds[wi].name} and finished all ${worlds[wi].levels.length} levels in this world! `
+      : `You completed ${completedLevelName}! `;
+
+    $("resultText").textContent =
+      completionMessage +
       `You earned ${stars} star(s), scored ${score}, and had ${Math.round(accuracy*100)}% accuracy. ${xpEarned ? "You earned " + xpEarned + " XP!" : "This level was already cleared, so no bonus XP this time."} Your total is ${save.xp} XP.`;
 
     $("continue").textContent =
