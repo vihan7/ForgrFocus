@@ -1122,8 +1122,15 @@ $("saveGoogleUsernameBtn").onclick = async () => {
   try {
     const { data: profile, error: profileError } = await supabaseClient
       .from("profiles")
-      .upsert({ id: currentUser.id, username }, { onConflict: "id" })
-      .select("id,username")
+      .upsert(
+        {
+          id: currentUser.id,
+          username,
+          username_lower: username.toLowerCase()
+        },
+        { onConflict: "id" }
+      )
+      .select("id,username,username_lower")
       .single();
     if (profileError) throw profileError;
     const { error: metadataError } = await supabaseClient.auth.updateUser({
