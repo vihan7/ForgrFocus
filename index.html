@@ -2323,6 +2323,7 @@ function choose(index,button) {
 
   if(!active || puzzleDone || selected.has(index)) return;
 
+  const level = worlds[wi].levels[li];
   selected.add(index);
   attempts++;
 
