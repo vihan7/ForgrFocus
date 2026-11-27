@@ -409,12 +409,27 @@ button:disabled {cursor:not-allowed}
   font-size:.85rem;
 }
 
+.header-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
 .account-bar {
   display:flex;
-  gap:10px;
+  gap:8px;
   align-items:center;
+  justify-content:flex-end;
   flex-wrap:wrap;
-  margin-bottom:15px;
+  margin:0;
+}
+.account-bar #accountStatus {font-size:.75rem;text-align:right}
+@media(max-width:740px) {
+  header {align-items:flex-start;flex-wrap:wrap}
+  .header-actions {width:100%;justify-content:flex-end}
+  .account-bar {width:100%;justify-content:flex-end}
+  .account-bar #accountStatus {width:100%;text-align:right}
 }
 
 .account-bar span {color:var(--muted);font-size:.85rem}
@@ -482,12 +497,14 @@ body.mission-mode .overlay {z-index:9999}
 
 /* MULTIPLAYER ROOMS */
 .room-panel {
+  display:none;
   margin:0 0 18px;
   padding:18px;
   border:1px solid rgba(103,232,249,.28);
   border-radius:22px;
   background:rgba(18,27,50,.94);
 }
+.room-panel.show {display:block}
 .room-panel h2 {margin:0 0 6px;font-size:1.1rem}
 .room-controls {display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
 .room-controls input {
@@ -529,24 +546,17 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
     <span class="logo">F</span>FOCUSFORGE
     <span style="color:var(--cyan)">QUEST</span>
   </div>
-  <span class="badge">CAMPAIGN MODE</span>
+  <div class="header-actions">
+    <span class="badge">CAMPAIGN MODE</span>
+    <div class="account-bar">
+      <span id="accountStatus">Playing as guest — World 1 is free.</span>
+      <button class="btn secondary" id="showAuth">Sign in / Create account</button>
+      <button class="btn primary" id="showMultiplayer" hidden>👥 Play Multiplayer</button>
+      <button class="btn secondary" id="viewLeaderboard" hidden>🏆 Leaderboard</button>
+      <button class="btn secondary" id="logoutBtn" hidden>Log out</button>
+    </div>
+  </div>
 </header>
-
-<div class="account-bar">
-  <span id="accountStatus">Playing as guest — World 1 is free.</span>
-
-  <button class="btn secondary" id="showAuth">
-    Sign in / Create account
-  </button>
-
-  <button class="btn primary" id="viewLeaderboard" hidden>
-    🏆 View Leaderboard
-  </button>
-
-  <button class="btn secondary" id="logoutBtn" hidden>
-    Log out
-  </button>
-</div>
 
 <section class="auth-panel" id="authPanel">
   <h2>🔐 Player account</h2>
@@ -605,8 +615,11 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
 </section>
 
 
-<section class="room-panel" id="multiplayerPanel">
-  <h2>👥 Multiplayer Rooms</h2>
+<section class="room-panel" id="multiplayerPanel" aria-label="Multiplayer panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <h2>👥 Multiplayer Rooms</h2>
+    <button class="btn secondary" id="hideMultiplayer" type="button">✕ Close</button>
+  </div>
   <p>Join a public match automatically, or create a private room and invite friends with a six-character code. Everyone needs a FocusForge account.</p>
   <div class="room-controls" id="roomEntryControls">
     <button class="btn primary" id="joinPublicRoomBtn" type="button">🌐 Join Public Room</button>
@@ -903,6 +916,7 @@ function updateAccountUI() {
         : "Welcome back!";
 
     $("showAuth").hidden = true;
+    $("showMultiplayer").hidden = false;
     $("logoutBtn").hidden = false;
     $("viewLeaderboard").hidden = false;
     authPanel.classList.remove("show");
@@ -917,6 +931,8 @@ function updateAccountUI() {
     $("welcomeHeading").textContent = "Ready, player one?";
 
     $("showAuth").hidden = false;
+    $("showMultiplayer").hidden = true;
+    $("multiplayerPanel").classList.remove("show");
     $("logoutBtn").hidden = true;
     $("viewLeaderboard").hidden = true;
 
@@ -1068,6 +1084,18 @@ async function checkSession() {
 
 $("showAuth").onclick = () => showAuth();
 $("hideAuth").onclick = hideAuth;
+$("showMultiplayer").onclick = () => {
+  if (!currentUser) {
+    showAuth("Sign in to play multiplayer.");
+    return;
+  }
+  $("multiplayerPanel").classList.toggle("show");
+};
+$("hideMultiplayer").onclick = () => {
+  if (!window.focusForgeRoomWaitingForResults && !window.focusForgeRoomResultsActive) {
+    $("multiplayerPanel").classList.remove("show");
+  }
+};
 
 $("lazarModeBtn").onclick = () => {
   const enableLazarMode = !lazarMode;
