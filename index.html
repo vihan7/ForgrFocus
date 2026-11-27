@@ -1834,7 +1834,7 @@ function stats() {
   updateXpDisplay();
   $("stars").textContent = st + " / 45";
   $("best").textContent = save.best;
-  $("clearedCount").textContent = ct + " / 15 cleared";
+  $("clearedCount").textContent = currentUser ? ct + " / 15 cleared" : "Sign in to view progress";
 
   $("fill").style.width = (ct/15*100) + "%";
 
@@ -1914,7 +1914,7 @@ function drawWorlds() {
     button.className =
       "world" +
       (wi===index ? " active" : "") +
-      (world.levels.every((_,level)=>cleared(index,level))
+      (currentUser && world.levels.every((_,level)=>cleared(index,level))
         ? " complete" : "");
 
     button.disabled = !worldProgressUnlocked(index);
@@ -1962,13 +1962,14 @@ function drawLevels() {
 
     button.disabled = !unlocked(wi,index);
 
-    const earned = save.stars[key(wi,index)] || 0;
+    // Do not reveal saved completion progress in the signed-out guest view.
+    const earned = currentUser ? (save.stars[key(wi,index)] || 0) : 0;
 
     button.innerHTML = `
       ${button.disabled ? "🔒" : index+1}
       <small>
         ${"★".repeat(earned)}
-        ${"☆".repeat(3-earned)}
+        ${currentUser ? "☆".repeat(3-earned) : "☆☆☆"}
       </small>
     `;
 
@@ -2029,7 +2030,7 @@ function render() {
     $("start").disabled = !unlocked(wi,li);
 
     $("start").textContent =
-      cleared(wi,li) ? "↻ Replay level" : "▶ Start level";
+      currentUser && cleared(wi,li) ? "↻ Replay level" : "▶ Start level";
   }
 }
 
