@@ -895,7 +895,7 @@ function updateAccountUI() {
     $("accountStatus").textContent =
       currentUsername
         ? "Signed in as " + currentUsername
-        : "Signed in — loading username...";
+        : "Signed in";
 
     $("welcomeHeading").textContent =
       currentUsername
@@ -959,23 +959,36 @@ async function loadCurrentUsername(user) {
     return;
   }
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("username")
-    .eq("id", user.id)
-    .maybeSingle();
+  let profile = null;
+  try {
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Profile lookup failed:", error.message);
+    } else {
+      profile = data;
+    }
+  } catch (error) {
+    console.error("Profile lookup threw an error:", error);
+  }
 
   if (!currentUser || currentUser.id !== user.id) return;
 
-  if (error) {
-    console.error("Profile error:", error.message);
-    currentUsername = user.user_metadata?.username || null;
-  } else {
-    currentUsername =
-      data?.username ||
-      user.user_metadata?.username ||
-      null;
-  }
+  // Lazar accounts use their username as the local part of this internal email.
+  // This is a safe fallback if their profile row is temporarily unavailable.
+  const lazarUsername = user.email?.toLowerCase().endsWith("@lazar.focusforge.invalid")
+    ? user.email.split("@")[0]
+    : null;
+
+  currentUsername =
+    profile?.username ||
+    user.user_metadata?.username ||
+    lazarUsername ||
+    null;
 
   // Detect Google sign-ins from both Supabase metadata and identity records.
   const isGoogleUser =
@@ -1008,6 +1021,10 @@ async function loadCurrentUsername(user) {
     $("loginBtn").hidden = false;
     $("signupHelp").hidden = false;
   }
+
+  // Update the account label as soon as the username lookup finishes.
+  // Campaign progress loading is independent and should not hold the label hostage.
+  if (!needsGoogleUsername) updateAccountUI();
 
   await loadCampaignProgress(user);
   if (!currentUser || currentUser.id !== user.id) return;
