@@ -2209,8 +2209,23 @@ function finish(success) {
   stats();
 
 
-  if (typeof window.focusForgeRoomScore === "function") {
-    window.focusForgeRoomScore(score, true);
+  const multiplayerMatch =
+    typeof window.focusForgeRoomScore === "function" &&
+    window.focusForgeRoomScore(score, true) === true;
+
+  if (multiplayerMatch) {
+    window.focusForgeRoomWaitingForResults = true;
+    window.focusForgeRoomResultsActive = false;
+    $("resultIcon").textContent = "⏳";
+    $("resultTitle").textContent = "MATCH FINISHED";
+    $("resultText").textContent =
+      `You scored ${score} points. Waiting for the other players to finish...`;
+    $("continue").textContent = "Waiting for players...";
+    $("continue").disabled = true;
+    $("close").hidden = true;
+  } else {
+    $("continue").disabled = false;
+    $("close").hidden = false;
   }
 
   $("overlay").classList.add("show");
@@ -2280,7 +2295,20 @@ $("restart").onclick=()=>{
 
 };
 
-$("continue").onclick=continueGame;
+$("continue").onclick=()=>{
+  if (window.focusForgeRoomResultsActive) {
+    window.focusForgeRoomResultsActive = false;
+    window.focusForgeRoomWaitingForResults = false;
+    $("overlay").classList.remove("show");
+    $("continue").disabled = false;
+    $("close").hidden = false;
+    stop();
+    exitMissionMode();
+    render();
+    return;
+  }
+  continueGame();
+};
 
 $("close").onclick=()=>{
 
@@ -2292,6 +2320,9 @@ $("close").onclick=()=>{
 };
 
 $("overlay").onclick=event=>{
+
+  if ((window.focusForgeRoomWaitingForResults || window.focusForgeRoomResultsActive) &&
+      event.target === $("overlay")) return;
 
   if(event.target===$("overlay")) {
 
@@ -2357,10 +2388,50 @@ render();
     roomId: null,
     isPublic: false,
     lobbyDeadline: null,
-    roomStatus: "waiting"
+    roomStatus: "waiting",
+    finishedPlayers: {},
+    matchStarted: false,
+    resultsShown: false
   };
 
   const roomText = (message) => { $("roomMessage").textContent = message; };
+
+  function maybeShowMultiplayerResults() {
+    if (!room.channel || !room.matchStarted || room.resultsShown) return;
+    if (currentUser && !room.players[currentUser.id]) {
+      room.players[currentUser.id] = { username: currentUsername || "Player", score: room.scores[currentUser.id] || 0 };
+    }
+    const playerIds = Object.keys(room.players);
+    if (!playerIds.length || !playerIds.every(id => room.finishedPlayers[id])) return;
+
+    const standings = playerIds.map(id => ({
+      id,
+      username: room.players[id]?.username || "Player",
+      score: Number(room.scores[id] ?? room.players[id]?.score) || 0
+    })).sort((a,b) => b.score-a.score || a.username.localeCompare(b.username));
+    const me = standings.find(player => player.id === currentUser?.id);
+    if (!me) return;
+
+    const place = 1 + standings.filter(player => player.score > me.score).length;
+    const tied = standings.filter(player => player.score === me.score).length > 1;
+    const winner = standings[0];
+    const ordinal = place === 1 ? "1ST" : place === 2 ? "2ND" : place === 3 ? "3RD" : place + "TH";
+
+    room.resultsShown = true;
+    room.matchStarted = false;
+    window.focusForgeRoomWaitingForResults = false;
+    window.focusForgeRoomResultsActive = true;
+    $("resultIcon").textContent = place === 1 ? "🏆" : place === 2 ? "🥈" : place === 3 ? "🥉" : "🎖️";
+    $("resultTitle").textContent = place === 1 ? (tied ? "YOU TIED FOR 1ST!" : "YOU WON!") : "YOU FINISHED " + ordinal + " PLACE!";
+    $("resultText").textContent = place === 1
+      ? `You finished with ${me.score} points. ${standings.length} player(s) competed. Congratulations!`
+      : `You placed ${place} of ${standings.length} with ${me.score} points. ${winner.username} finished first with ${winner.score} points.`;
+    $("continue").textContent = "Return to room";
+    $("continue").disabled = false;
+    $("close").hidden = true;
+    $("roomRoundClock").textContent = "Match finished · final scores are ready.";
+    $("overlay").classList.add("show");
+  }
 
   function roomRoster() {
     const roster = $("roomRoster");
@@ -2422,6 +2493,11 @@ render();
   async function handleRoomEvent(payload) {
     if (!payload || !payload.event) return;
     if (payload.event === "round_start") {
+      room.finishedPlayers = {};
+      room.resultsShown = false;
+      room.matchStarted = true;
+      window.focusForgeRoomWaitingForResults = false;
+      window.focusForgeRoomResultsActive = false;
       if (room.isPublic) { room.roomStatus = "started"; clearInterval(room.lobbyTimer); }
       const delay = Math.max(0, Number(payload.startAt) - Date.now());
       $("roomRoundClock").textContent = "Round starts in 3 seconds...";
@@ -2432,11 +2508,17 @@ render();
       }, delay);
     } else if (payload.event === "score_update") {
       room.scores[payload.userId] = Number(payload.score) || 0;
-      if (room.players[payload.userId]) room.players[payload.userId].score = room.scores[payload.userId];
-      roomRoster();
+      if (!room.players[payload.userId]) {
+        room.players[payload.userId] = { username: "Player", score: room.scores[payload.userId] };
+      } else {
+        room.players[payload.userId].score = room.scores[payload.userId];
+      }
       if (payload.final) {
+        room.finishedPlayers[payload.userId] = true;
         $("roomRoundClock").textContent = "A player has finished their round.";
       }
+      roomRoster();
+      maybeShowMultiplayerResults();
     } else if (payload.event === "round_end") {
       $("roomRoundClock").textContent = "The host ended the round.";
     }
@@ -2453,6 +2535,9 @@ render();
     room.roomStatus = options.status || "waiting";
     room.players = {};
     room.scores = {};
+    room.finishedPlayers = {};
+    room.matchStarted = false;
+    room.resultsShown = false;
     const channel = supabaseClient.channel("focusforge-room-" + code, {
       config: {
         broadcast: { self: true },
@@ -2475,6 +2560,7 @@ render();
         });
         room.players = next;
         roomRoster();
+        maybeShowMultiplayerResults();
         if (room.isPublic) refreshPublicLobby();
       })
       .on("broadcast", { event: "room_event" }, ({ payload }) => {
@@ -2522,6 +2608,11 @@ render();
     room.roomStatus = "waiting";
     room.players = {};
     room.scores = {};
+    room.finishedPlayers = {};
+    room.matchStarted = false;
+    room.resultsShown = false;
+    window.focusForgeRoomWaitingForResults = false;
+    window.focusForgeRoomResultsActive = false;
     updateRoomUI();
     $("roomRoundClock").textContent = "Waiting for the host to start a round.";
     if (showMessage) roomText("You left the room.");
@@ -2707,16 +2798,22 @@ render();
   }
 
   window.focusForgeRoomScore = (score, final) => {
-    if (!room.channel || !currentUser) return;
+    if (!room.channel || !currentUser) return false;
     const value = Number(score) || 0;
     room.scores[currentUser.id] = value;
-    if (room.players[currentUser.id]) room.players[currentUser.id].score = value;
+    if (!room.players[currentUser.id]) {
+      room.players[currentUser.id] = { username: currentUsername || "Player", score: value };
+    } else {
+      room.players[currentUser.id].score = value;
+    }
+    if (final) room.finishedPlayers[currentUser.id] = true;
     roomRoster();
     sendRoomEvent("score_update", {
       userId: currentUser.id,
       score: value,
       final: !!final
-    });
+    }).then(() => maybeShowMultiplayerResults());
+    return true;
   };
 
   $("joinPublicRoomBtn").addEventListener("click", joinPublicRoom);
