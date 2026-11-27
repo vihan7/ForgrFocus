@@ -838,6 +838,9 @@ const supabaseClient = window.supabase.createClient(
 
 let currentUser = null;
 let currentUsername = null;
+let campaignProgressUserId = null;
+let campaignProgressLoadPromise = null;
+let campaignProgressSaveTimer = null;
 let lazarMode = false;
 let lazarVerified = false;
 
@@ -967,6 +970,10 @@ async function loadCurrentUsername(user) {
       user.user_metadata?.username ||
       null;
   }
+
+  // Load this account's campaign before refreshing the signed-in UI.
+  await loadCampaignProgress(user);
+  if (!currentUser || currentUser.id !== user.id) return;
 
   updateAccountUI();
   const isGoogleUser = user.app_metadata?.provider === "google" || user.app_metadata?.providers?.includes("google");
@@ -1404,6 +1411,11 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
 
   currentUser = session?.user || null;
   currentUsername = null;
+  if (!currentUser) {
+    campaignProgressUserId = null;
+    clearTimeout(campaignProgressSaveTimer);
+    campaignProgressSaveTimer = null;
+  }
 
   if (!currentUser && typeof window.focusForgeResetSessionOnLogout === "function") {
     lazarMode = false;
@@ -1779,12 +1791,83 @@ const starTotal = () =>
 
 function persist() {
   try {
-    localStorage.setItem(
-      "focusforge-quest-v1",
-      JSON.stringify(save)
-    );
+    localStorage.setItem("focusforge-quest-v1", JSON.stringify(save));
   } catch(error) {
-    console.error("Could not save campaign progress.",error);
+    console.error("Could not save campaign progress locally.",error);
+  }
+
+  // Do not upload until the signed-in account's cloud progress has loaded.
+  if (!currentUser || campaignProgressUserId !== currentUser.id) return;
+  clearTimeout(campaignProgressSaveTimer);
+  const userId = currentUser.id;
+  const progressSnapshot = JSON.parse(JSON.stringify(save));
+  campaignProgressSaveTimer = setTimeout(async () => {
+    if (!currentUser || currentUser.id !== userId || campaignProgressUserId !== userId) return;
+    const { error } = await supabaseClient
+      .from("campaign_progress")
+      .upsert({
+        user_id: userId,
+        progress: progressSnapshot,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id" });
+    if (error) console.error("Could not sync campaign progress to the account:", error);
+  }, 700);
+}
+
+function mergeCampaignProgress(localProgress, cloudProgress) {
+  const local = localProgress && typeof localProgress === "object" ? localProgress : {};
+  const cloud = cloudProgress && typeof cloudProgress === "object" ? cloudProgress : {};
+  const merged = {
+    cleared: { ...(local.cleared || {}), ...(cloud.cleared || {}) },
+    stars: {},
+    best: Math.max(Number(local.best) || 0, Number(cloud.best) || 0),
+    xp: Math.max(Number(local.xp) || 0, Number(cloud.xp) || 0),
+    xpLevels: { ...(local.xpLevels || {}), ...(cloud.xpLevels || {}) }
+  };
+
+  // A cleared level stays cleared, and the highest star result wins.
+  Object.keys({ ...(local.stars || {}), ...(cloud.stars || {}) }).forEach(levelKey => {
+    merged.stars[levelKey] = Math.max(
+      Number(local.stars?.[levelKey]) || 0,
+      Number(cloud.stars?.[levelKey]) || 0
+    );
+  });
+  return merged;
+}
+
+async function loadCampaignProgress(user) {
+  if (!user) return;
+  if (campaignProgressUserId === user.id) return;
+  if (campaignProgressLoadPromise) await campaignProgressLoadPromise;
+  if (!currentUser || currentUser.id !== user.id) return;
+
+  campaignProgressLoadPromise = (async () => {
+    const localProgress = JSON.parse(JSON.stringify(save));
+    const { data, error } = await supabaseClient
+      .from("campaign_progress")
+      .select("progress")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!currentUser || currentUser.id !== user.id) return;
+    if (error) {
+      console.error("Could not load cloud campaign progress. Run the campaign_progress SQL setup:", error);
+      return;
+    }
+
+    // Merge rather than replace: this preserves progress already on this device
+    // and progress already stored in the player's account.
+    save = mergeCampaignProgress(localProgress, data?.progress || {});
+    campaignProgressUserId = user.id;
+    persist();
+    stats();
+    render();
+  })();
+
+  try {
+    await campaignProgressLoadPromise;
+  } finally {
+    campaignProgressLoadPromise = null;
   }
 }
 
