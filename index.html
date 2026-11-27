@@ -913,6 +913,20 @@ function updateAccountUI() {
     $("showAuth").hidden = false;
     $("logoutBtn").hidden = true;
     $("viewLeaderboard").hidden = true;
+
+    // Restore the complete signed-out auth options. Google username setup
+    // can hide the Lazar button while a Google account is being completed.
+    // If that account is then logged out, make Lazar Student available again.
+    $("googleUsernameSetup").hidden = true;
+    $("googleBtn").hidden = false;
+    $("lazarModeBtn").hidden = false;
+    $("emailInput").hidden = false;
+    $("usernameInput").hidden = false;
+    $("passwordInput").hidden = false;
+    $("signupBtn").hidden = false;
+    $("loginBtn").hidden = false;
+    $("signupHelp").hidden = false;
+
     authPanel.classList.remove("show");
   }
 
