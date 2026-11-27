@@ -514,7 +514,7 @@ body.mission-mode .overlay {z-index:9999}
 .room-message {min-height:22px;margin-top:10px;color:var(--gold);font-size:.85rem}
 .room-panel .host-only[hidden], .room-panel [hidden] {display:none!important}
 .level-timer {display:none;margin:0 0 14px;padding:12px 16px;border:1px solid rgba(103,232,249,.35);border-radius:16px;background:#0b1428;color:var(--cyan);font-size:1.15rem;font-weight:900;text-align:center}
-body.mission-mode .level-timer {display:block}
+body.mission-mode .level-timer {display:block!important;visibility:visible;opacity:1}
 .level-timer.urgent {color:var(--red);border-color:var(--red)}
 
 </style>
@@ -1991,13 +1991,13 @@ function choose(index,button) {
       10,
       Math.ceil(100 * (timeLeft / Math.max(1, levelDuration)))
     );
-    score += pointsForThisTarget;
+    score = (Number.isFinite(Number(score)) ? Number(score) : 0) + pointsForThisTarget;
     button.className="tile correct";
     button.textContent="✓";
 
   } else {
 
-    score=Math.max(0,score-50);
+    score=Math.max(0,(Number.isFinite(Number(score)) ? Number(score) : 0)-50);
     timeLeft=Math.max(0,timeLeft-2);
     if (sharedLevelDeadline !== null) sharedLevelDeadline -= 2000;
     button.className="tile wrong";
@@ -2086,6 +2086,8 @@ function start(sharedStartAt = null) {
 
   enterMissionMode();
   stop();
+  const campaignTimer = $("levelTimer");
+  if (campaignTimer) { campaignTimer.style.display = "block"; campaignTimer.style.visibility = "visible"; }
 
   active=true;
 
@@ -2144,6 +2146,12 @@ function finish(success) {
   $("start").disabled=false;
 
   const accuracy=attempts ? correct/attempts : 0;
+
+  score = Number.isFinite(Number(score)) ? Number(score) : 0;
+  save.best = Number.isFinite(Number(save.best)) ? Number(save.best) : 0;
+  save.xp = Number.isFinite(Number(save.xp)) ? Number(save.xp) : 0;
+  attempts = Number.isFinite(Number(attempts)) ? Number(attempts) : 0;
+  correct = Number.isFinite(Number(correct)) ? Number(correct) : 0;
 
   if(success) {
 
