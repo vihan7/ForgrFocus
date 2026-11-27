@@ -694,7 +694,7 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
 
 <aside class="side">
 
-  <section class="panel">
+  <section class="panel" id="playerStatsPanel">
     <div class="section">
       <h2>Player stats</h2>
       <span class="muted">This run</span>
@@ -736,7 +736,7 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
     </p>
   </section>
 
-  <section class="xp-card" aria-live="polite">
+  <section class="xp-card" id="xpStatsPanel" aria-live="polite">
     <h3>✨ XP &amp; Rank <span class="xp-rank" id="xpRank">ROOKIE</span></h3>
     <div class="xp-total"><span id="xpTotal">0</span> XP</div>
     <div class="bar"><div class="fill" id="xpFill"></div></div>
@@ -929,6 +929,11 @@ function updateAccountUI() {
 
     authPanel.classList.remove("show");
   }
+
+  // Account-specific stats are hidden when signed out. Saved progress remains
+  // stored locally and will be shown again after the player signs back in.
+  $("playerStatsPanel").hidden = !currentUser;
+  $("xpStatsPanel").hidden = !currentUser;
 
   if (typeof render === "function") render();
 }
