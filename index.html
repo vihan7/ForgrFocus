@@ -1771,6 +1771,33 @@ const worlds = [
     ["Cosmic Trial","High challenge, limited time.",21,20,8],
     ["Focus Legend","The final campaign challenge!",20,20,8]
   ]
+},
+{
+  name:"Crystal Caverns",
+  icon:"💎",
+  desc:"EXTREME difficulty · Locked for now",
+  locked:true,
+  levels:[
+    // Format: title, description, seconds, board size, targets, mistake limit, wrong-pick time penalty.
+    ["Crystal Entry","A packed cavern: find every target with almost no room for errors.",27,20,6,4,3],
+    ["Shimmering Paths","Lookalikes fill the board. Scan carefully before every tap.",26,20,6,3,3],
+    ["Prism Puzzles","Seven targets per round, a crowded board, and a strict clock.",25,20,7,3,3],
+    ["Hidden Geodes","The target count rises while your mistake allowance falls.",24,20,7,2,4],
+    ["Cavern Champion","The first boss: five packed rounds with only one mistake allowed.",23,20,7,1,4]
+  ]
+},
+{
+  name:"Neon Summit",
+  icon:"🌌",
+  desc:"NIGHTMARE difficulty · Locked for now",
+  locked:true,
+  levels:[
+    ["Neon Approach","No warm-up: a packed board and only two mistakes allowed.",22,20,7,2,4],
+    ["Signal Storm","Keep your accuracy under pressure; wrong picks cost four seconds.",21,20,7,2,4],
+    ["Light Trails","Eight targets per round. One mistake can end the run.",20,20,8,1,4],
+    ["Summit Shift","Five rounds, eight targets each, and only one mistake allowed.",19,20,8,1,5],
+    ["Peak Focus","FINAL BOSS: five perfect rounds. One wrong pick ends the attempt.",18,20,8,0,5]
+  ]
 }
 ];
 
@@ -1838,8 +1865,9 @@ let wi=
 
 const cleared = (w,l) => !!save.cleared[key(w,l)];
 
+// Worlds 4 and 5 are visible placeholders and remain hard-locked for now.
 const worldProgressUnlocked = w =>
-  w===0 || cleared(w-1,worlds[w-1].levels.length-1);
+  w >= 0 && w < 3 && (w===0 || cleared(w-1,worlds[w-1].levels.length-1));
 
 const unlocked = (w,l) =>
   w===0 && l===0 ? true :
@@ -2081,11 +2109,11 @@ function drawWorlds() {
       (currentUser && world.levels.every((_,level)=>cleared(index,level))
         ? " complete" : "");
 
-    button.disabled = !worldProgressUnlocked(index);
+    button.disabled = !!world.locked || !worldProgressUnlocked(index);
 
     button.innerHTML = `
       <span class="emoji">${world.icon}</span>
-      <strong>${world.name}</strong>
+      <strong>${world.locked ? "🔒 " : ""}${world.name}</strong>
       <small>${world.desc}</small>
     `;
 
@@ -2276,8 +2304,11 @@ function puzzle() {
     grid.appendChild(button);
   });
 
+  const mistakeRule = Number.isFinite(level[5])
+    ? " · Max mistakes: " + level[5]
+    : "";
   $("status").textContent =
-    "Round " + (roundsCompleted + 1) + "/5 · Find all " + level[4] + " targets!";
+    "Round " + (roundsCompleted + 1) + "/5 · Find all " + level[4] + " targets!" + mistakeRule;
 
   $("status").className="status";
 
@@ -2292,6 +2323,7 @@ function choose(index,button) {
 
   if(!active || puzzleDone || selected.has(index)) return;
 
+  const level = worlds[wi].levels[li];
   selected.add(index);
   attempts++;
 
@@ -2308,11 +2340,12 @@ function choose(index,button) {
   } else {
 
     score=Math.max(0,(Number.isFinite(Number(score)) ? Number(score) : 0)-50);
+    const wrongPickPenalty = Number.isFinite(Number(level[6])) ? Math.max(0, Number(level[6])) : 2;
     if (Number.isFinite(Number(sharedLevelDeadline))) {
-      sharedLevelDeadline = Math.max(Date.now(), Number(sharedLevelDeadline) - 2000);
+      sharedLevelDeadline = Math.max(Date.now(), Number(sharedLevelDeadline) - wrongPickPenalty * 1000);
       timeLeft = Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
     } else {
-      timeLeft = Math.max(0, (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : 0) - 2);
+      timeLeft = Math.max(0, (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : 0) - wrongPickPenalty);
     }
     button.className="tile wrong";
     button.textContent="×";
@@ -2321,6 +2354,14 @@ function choose(index,button) {
 
   button.disabled=true;
   stats();
+
+  // Worlds 4 and 5 add a limited-mistake rule. Older worlds have no limit.
+  const mistakeLimit = level[5];
+  const mistakesMade = attempts - correct;
+  if (Number.isFinite(mistakeLimit) && mistakesMade > mistakeLimit) {
+    finish(false);
+    return;
+  }
 
   if (typeof window.focusForgeRoomScore === "function") {
     window.focusForgeRoomScore(score, false);
@@ -2523,15 +2564,21 @@ function finish(success) {
 
   } else {
 
-    $("resultIcon").textContent="⏱️";
-    $("resultTitle").textContent="TIME UP!";
+    const mistakeLimit = worlds[wi].levels[li][5];
+    const mistakesMade = attempts - correct;
+    const failedByMistakes = Number.isFinite(mistakeLimit) && mistakesMade > mistakeLimit;
+    $("resultIcon").textContent = failedByMistakes ? "🎯" : "⏱️";
+    $("resultTitle").textContent = failedByMistakes ? "TOO MANY MISTAKES!" : "TIME UP!";
 
-    $("resultText").textContent=
-      `You scored ${score} with ${attempts?Math.round(accuracy*100):0}% accuracy. Retry and see if you can clear the level.`;
+    $("resultText").textContent = failedByMistakes
+      ? `You made ${mistakesMade} mistakes, but this level allows only ${mistakeLimit}. You scored ${score}. Reset your focus and try again.`
+      : `You scored ${score} with ${attempts?Math.round(accuracy*100):0}% accuracy. Retry and see if you can clear the level.`;
 
     $("continue").textContent="Retry level";
 
-    $("status").textContent="Time ran out. Try the level again.";
+    $("status").textContent = failedByMistakes
+      ? "Mistake limit exceeded. Try again with greater accuracy."
+      : "Time ran out. Try the level again.";
     $("status").className="status bad";
   }
 
