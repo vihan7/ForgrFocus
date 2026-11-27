@@ -938,6 +938,15 @@ function updateAccountUI() {
   $("playerStatsPanel").hidden = !currentUser;
   $("xpStatsPanel").hidden = !currentUser;
 
+  // Refresh the progress label immediately when auth state changes. This
+  // prevents the initial guest-state label from remaining after login.
+  const progressLabel = $("clearedCount");
+  if (progressLabel) {
+    progressLabel.textContent = currentUser
+      ? clearedTotal() + " / 15 cleared"
+      : "Sign in to view progress";
+  }
+
   if (typeof render === "function") render();
 }
 
