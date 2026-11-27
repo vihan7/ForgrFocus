@@ -893,7 +893,9 @@ function updateAccountUI() {
   if (currentUser) {
 
     $("accountStatus").textContent =
-      "Signed in as " + (currentUsername || "player");
+      currentUsername
+        ? "Signed in as " + currentUsername
+        : "Signed in — loading username...";
 
     $("welcomeHeading").textContent =
       currentUsername
@@ -1429,12 +1431,32 @@ $("logoutBtn").onclick = async () => {
 supabaseClient.auth.onAuthStateChange((_event, session) => {
 
   authStateEventReceived = true;
-  currentUser = session?.user || null;
+  const previousUserId = currentUser?.id || null;
+  const nextUser = session?.user || null;
+  const nextUserId = nextUser?.id || null;
+  const accountChanged = previousUserId !== nextUserId;
+
+  currentUser = nextUser;
   currentUsername = null;
-  if (!currentUser) {
+
+  if (accountChanged) {
     campaignProgressUserId = null;
     clearTimeout(campaignProgressSaveTimer);
     campaignProgressSaveTimer = null;
+
+    // Clear the in-memory campaign immediately when switching accounts.
+    // The new account's data is loaded below, after its identity is confirmed.
+    save = { cleared:{}, stars:{}, best:0, xp:0, xpLevels:{} };
+    wi = 0;
+    li = 0;
+    if (!currentUser) {
+      try {
+        const guestSave = JSON.parse(localStorage.getItem(campaignStorageKey(null)));
+        if (guestSave && guestSave.cleared && guestSave.stars) save = guestSave;
+      } catch (storageError) {
+        console.warn("Could not restore guest campaign.", storageError);
+      }
+    }
   }
 
   if (!currentUser && typeof window.focusForgeResetSessionOnLogout === "function") {
@@ -1745,16 +1767,24 @@ let save = {
   xpLevels:{}
 };
 
+// Guest progress is kept separate. Signed-in accounts load only their own
+// local cache and their own Supabase campaign_progress row.
+function campaignStorageKey(user = currentUser) {
+  return user
+    ? "focusforge-quest-v1-user-" + user.id
+    : "focusforge-quest-v1-guest";
+}
+
 try {
   const stored = JSON.parse(
-    localStorage.getItem("focusforge-quest-v1")
+    localStorage.getItem(campaignStorageKey(null))
   );
 
   if (stored && stored.cleared && stored.stars) {
     save = stored;
   }
 } catch(error) {
-  console.warn("Could not load saved campaign.",error);
+  console.warn("Could not load saved guest campaign.",error);
 }
 
 // Keep older saved games compatible and award starting XP for levels
@@ -1811,7 +1841,7 @@ const starTotal = () =>
 
 function persist() {
   try {
-    localStorage.setItem("focusforge-quest-v1", JSON.stringify(save));
+    localStorage.setItem(campaignStorageKey(), JSON.stringify(save));
   } catch(error) {
     console.error("Could not save campaign progress locally.",error);
   }
@@ -1867,7 +1897,16 @@ async function loadCampaignProgress(user) {
   if (!currentUser || currentUser.id !== user.id) return;
 
   campaignProgressLoadPromise = (async () => {
-    const localProgress = JSON.parse(JSON.stringify(save));
+    // Never merge guest or another account's browser data into this account.
+    // Only this user's account-keyed cache and cloud row are trusted.
+    let localProgress = {};
+    try {
+      const stored = JSON.parse(localStorage.getItem(campaignStorageKey(user)));
+      if (stored && stored.cleared && stored.stars) localProgress = stored;
+    } catch (storageError) {
+      console.warn("Could not read this account's local campaign cache.", storageError);
+    }
+
     const { data, error } = await supabaseClient
       .from("campaign_progress")
       .select("progress")
