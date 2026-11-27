@@ -1931,7 +1931,7 @@ function stats() {
   updateXpDisplay();
   $("stars").textContent = st + " / 45";
   $("best").textContent = save.best;
-  $("clearedCount").textContent = currentUser ? ct + " / 15 cleared" : "Sign in to view progress";
+  $("clearedCount").textContent = currentUser ? ct + " / 15 cleared" : "";
 
   $("fill").style.width = (ct/15*100) + "%";
 
