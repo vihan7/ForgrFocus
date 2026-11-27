@@ -557,6 +557,12 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
     Continue with Google
   </button>
 
+  <div id="googleUsernameSetup" hidden style="margin:12px 0;padding:12px;border:1px solid #526587;border-radius:12px;background:#0b1428;">
+    <p style="margin-bottom:8px;color:var(--text)">Choose a unique username for your Google account. This name will be saved to your profile.</p>
+    <input id="googleUsernameChoice" type="text" maxlength="20" autocomplete="username" placeholder="Choose username (3–20 characters)" style="width:100%;padding:12px;border-radius:10px;border:1px solid #526587;background:#091020;color:white;">
+    <button class="btn primary" id="saveGoogleUsernameBtn" type="button" style="margin-top:8px">Save username</button>
+  </div>
+
   <div class="auth-divider">OR USE EMAIL / LAZAR ACCOUNT</div>
 
   <button class="btn secondary" id="lazarModeBtn" type="button">
@@ -701,6 +707,11 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
       </div>
 
       <div class="stat">
+        <span>🎮 Current score</span>
+        <b id="currentScore">0</b>
+      </div>
+
+      <div class="stat">
         <span>🏆 Best score</span>
         <b id="best">0</b>
       </div>
@@ -840,7 +851,8 @@ const authMessage = $("authMessage");
 function showAuth(message = "") {
   authPanel.classList.add("show");
   authMessage.textContent = message;
-  $("usernameInput").focus();
+  if (!$("googleUsernameSetup").hidden) $("googleUsernameChoice").focus();
+  else $("usernameInput").focus();
 }
 
 function hideAuth() {
@@ -936,8 +948,30 @@ async function loadCurrentUsername(user) {
   }
 
   updateAccountUI();
+  const isGoogleUser = user.app_metadata?.provider === "google" || user.app_metadata?.providers?.includes("google");
+  if (isGoogleUser && (!currentUsername || /^Player_/i.test(currentUsername))) {
+    $("googleUsernameSetup").hidden = false;
+    $("googleBtn").hidden = true;
+    $("lazarModeBtn").hidden = true;
+    $("emailInput").hidden = true;
+    $("usernameInput").hidden = true;
+    $("passwordInput").hidden = true;
+    $("signupBtn").hidden = true;
+    $("loginBtn").hidden = true;
+    $("signupHelp").hidden = true;
+    showAuth("Choose a username to finish setting up your Google account.");
+  } else {
+    $("googleUsernameSetup").hidden = true;
+    $("googleBtn").hidden = false;
+    $("lazarModeBtn").hidden = false;
+    $("emailInput").hidden = false;
+    $("usernameInput").hidden = false;
+    $("passwordInput").hidden = false;
+    $("signupBtn").hidden = false;
+    $("loginBtn").hidden = false;
+    $("signupHelp").hidden = false;
+  }
 }
-
 /* =========================================
    CHECK SESSION
 ========================================= */
@@ -1062,6 +1096,57 @@ $("googleBtn").onclick = async () => {
       "Google sign-in couldn't start. Please try again.";
 
     button.disabled = false;
+  }
+};
+
+/* =========================================
+   SAVE GOOGLE USERNAME
+========================================= */
+
+$("saveGoogleUsernameBtn").onclick = async () => {
+  if (!currentUser) {
+    authMessage.textContent = "Please sign in with Google again.";
+    return;
+  }
+  const username = $("googleUsernameChoice").value.trim();
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+    authMessage.textContent = "Username must be 3–20 characters and use only letters, numbers, or underscores.";
+    $("googleUsernameChoice").focus();
+    return;
+  }
+  const saveButton = $("saveGoogleUsernameBtn");
+  saveButton.disabled = true;
+  authMessage.textContent = "Saving username...";
+  try {
+    const { data: profile, error: profileError } = await supabaseClient
+      .from("profiles")
+      .upsert({ id: currentUser.id, username }, { onConflict: "id" })
+      .select("id,username")
+      .single();
+    if (profileError) throw profileError;
+    const { error: metadataError } = await supabaseClient.auth.updateUser({
+      data: { username: profile.username }
+    });
+    if (metadataError) throw metadataError;
+    currentUsername = profile.username;
+    $("googleUsernameSetup").hidden = true;
+    $("googleBtn").hidden = false;
+    $("lazarModeBtn").hidden = false;
+    $("emailInput").hidden = false;
+    $("usernameInput").hidden = false;
+    $("passwordInput").hidden = false;
+    $("signupBtn").hidden = false;
+    $("loginBtn").hidden = false;
+    $("signupHelp").hidden = false;
+    updateAccountUI();
+    authMessage.textContent = "Username saved! Welcome, " + currentUsername + ".";
+  } catch (error) {
+    const msg = String(error?.message || error || "Could not save username.");
+    authMessage.textContent = /duplicate|unique|profiles_username_lower_key/i.test(msg)
+      ? "That username is already taken. Please choose another."
+      : msg;
+  } finally {
+    saveButton.disabled = false;
   }
 };
 
@@ -1700,6 +1785,8 @@ function stats() {
 
   const st = starTotal();
   const ct = clearedTotal();
+  const currentScoreEl = $("currentScore");
+  if (currentScoreEl) currentScoreEl.textContent = Number.isFinite(Number(score)) ? Math.max(0, Number(score)).toLocaleString() : "0";
 
   updateXpDisplay();
   $("stars").textContent = st + " / 45";
@@ -1723,7 +1810,8 @@ function stats() {
   $("time").textContent = active ? timeLeft + "s" : "—";
   const levelTimer = $("levelTimer");
   if (levelTimer) {
-    levelTimer.textContent = active ? "⏱ Time remaining: " + timeLeft + "s" : "⏱ Time remaining: --";
+    const safeTime = Number.isFinite(Number(timeLeft)) ? Math.max(0, Math.ceil(Number(timeLeft))) : 0;
+    levelTimer.textContent = active ? "⏱ Time remaining: " + safeTime + "s" : "⏱ Time remaining: --";
     levelTimer.classList.toggle("urgent", active && timeLeft <= 5);
   }
 }
@@ -1987,10 +2075,9 @@ function choose(index,button) {
   if(tiles[index].match) {
 
     correct++;
-    const pointsForThisTarget = Math.max(
-      10,
-      Math.ceil(100 * (timeLeft / Math.max(1, levelDuration)))
-    );
+    const safeTimeLeft = Number.isFinite(Number(timeLeft)) ? Math.max(0, Number(timeLeft)) : 0;
+    const safeLevelDuration = Number.isFinite(Number(levelDuration)) ? Math.max(1, Number(levelDuration)) : 1;
+    const pointsForThisTarget = Math.max(10, Math.ceil(100 * (safeTimeLeft / safeLevelDuration)));
     score = (Number.isFinite(Number(score)) ? Number(score) : 0) + pointsForThisTarget;
     button.className="tile correct";
     button.textContent="✓";
@@ -1998,8 +2085,12 @@ function choose(index,button) {
   } else {
 
     score=Math.max(0,(Number.isFinite(Number(score)) ? Number(score) : 0)-50);
-    timeLeft=Math.max(0,timeLeft-2);
-    if (sharedLevelDeadline !== null) sharedLevelDeadline -= 2000;
+    if (Number.isFinite(Number(sharedLevelDeadline))) {
+      sharedLevelDeadline = Math.max(Date.now(), Number(sharedLevelDeadline) - 2000);
+      timeLeft = Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
+    } else {
+      timeLeft = Math.max(0, (Number.isFinite(Number(timeLeft)) ? Number(timeLeft) : 0) - 2);
+    }
     button.className="tile wrong";
     button.textContent="×";
 
@@ -2094,10 +2185,14 @@ function start(sharedStartAt = null) {
   const level=worlds[wi].levels[li];
   levelDuration=level[2];
   roundsCompleted=0;
-  sharedLevelDeadline = sharedStartAt !== null
-    ? Number(sharedStartAt) + level[2] * 1000
+  const requestedStartAt = sharedStartAt !== null && sharedStartAt !== undefined
+    ? Number(sharedStartAt)
+    : null;
+  sharedLevelDeadline = Number.isFinite(requestedStartAt)
+    ? requestedStartAt + level[2] * 1000
     : Date.now() + level[2] * 1000;
-  timeLeft=Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
+  if (!Number.isFinite(sharedLevelDeadline)) sharedLevelDeadline = Date.now() + level[2] * 1000;
+  timeLeft = Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
 
   $("start").disabled=true;
   $("start").textContent="Mission in progress…";
@@ -2106,7 +2201,10 @@ function start(sharedStartAt = null) {
 
   timer=setInterval(()=>{
 
-    timeLeft=Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
+    if (!Number.isFinite(Number(sharedLevelDeadline))) {
+      sharedLevelDeadline = Date.now() + Math.max(1, Number(levelDuration) || 1) * 1000;
+    }
+    timeLeft = Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
     stats();
 
     if(timeLeft<=0) finish(false);
