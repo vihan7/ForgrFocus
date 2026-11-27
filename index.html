@@ -550,7 +550,7 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
 
 <section class="auth-panel" id="authPanel">
   <h2>🔐 Player account</h2>
-  <p>Sign in or create an account to unlock Worlds 2 and 3.</p>
+  <p>Sign in or create an account to unlock Worlds 2–5.</p>
 
   <button class="google-btn" id="googleBtn" type="button">
     <span class="google-icon">G</span>
@@ -648,7 +648,7 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
 
   <div class="section">
     <h2>Choose your world</h2>
-    <span class="muted" id="clearedCount">0 / 15 cleared</span>
+    <span class="muted" id="clearedCount">0 / 25 cleared</span>
   </div>
 
   <div class="worlds" id="worlds"></div>
@@ -703,7 +703,7 @@ body.mission-mode .level-timer {display:block!important;visibility:visible;opaci
     <div class="stats">
       <div class="stat">
         <span>⭐ Total stars</span>
-        <b class="gold" id="stars">0 / 45</b>
+        <b class="gold" id="stars">0 / 75</b>
       </div>
 
       <div class="stat">
@@ -1775,8 +1775,7 @@ const worlds = [
 {
   name:"Crystal Caverns",
   icon:"💎",
-  desc:"EXTREME difficulty · Locked for now",
-  locked:true,
+  desc:"EXTREME difficulty · Complete World 3 to enter",
   levels:[
     // Format: title, description, seconds, board size, targets, mistake limit, wrong-pick time penalty.
     ["Crystal Entry","A packed cavern: find every target with almost no room for errors.",27,20,6,4,3],
@@ -1789,8 +1788,7 @@ const worlds = [
 {
   name:"Neon Summit",
   icon:"🌌",
-  desc:"NIGHTMARE difficulty · Locked for now",
-  locked:true,
+  desc:"NIGHTMARE difficulty · Complete World 4 to enter",
   levels:[
     ["Neon Approach","No warm-up: a packed board and only two mistakes allowed.",22,20,7,2,4],
     ["Signal Storm","Keep your accuracy under pressure; wrong picks cost four seconds.",21,20,7,2,4],
@@ -1865,9 +1863,9 @@ let wi=
 
 const cleared = (w,l) => !!save.cleared[key(w,l)];
 
-// Worlds 4 and 5 are visible placeholders and remain hard-locked for now.
+// All five worlds follow the same campaign progression: clear the previous world to enter the next.
 const worldProgressUnlocked = w =>
-  w >= 0 && w < 3 && (w===0 || cleared(w-1,worlds[w-1].levels.length-1));
+  w >= 0 && w < worlds.length && (w===0 || cleared(w-1,worlds[w-1].levels.length-1));
 
 const unlocked = (w,l) =>
   w===0 && l===0 ? true :
@@ -2024,14 +2022,16 @@ function stats() {
   if (currentScoreEl) currentScoreEl.textContent = Number.isFinite(Number(score)) ? Math.max(0, Number(score)).toLocaleString() : "0";
 
   updateXpDisplay();
-  $("stars").textContent = st + " / 45";
+  const totalLevels = worlds.reduce((total, world) => total + world.levels.length, 0);
+  const totalStars = totalLevels * 3;
+  $("stars").textContent = st + " / " + totalStars;
   $("best").textContent = save.best;
-  $("clearedCount").textContent = currentUser ? ct + " / 15 cleared" : "";
+  $("clearedCount").textContent = currentUser ? ct + " / " + totalLevels + " cleared" : "";
 
-  $("fill").style.width = (ct/15*100) + "%";
+  $("fill").style.width = (ct/totalLevels*100) + "%";
 
   $("progressText").textContent =
-    ct===15 ? "Campaign complete!" : (15-ct) + " levels left";
+    ct===totalLevels ? "Campaign complete!" : (totalLevels-ct) + " levels left";
 
   $("rank").textContent =
     st>=35 ? "FOCUS LEGEND" :
@@ -2202,7 +2202,9 @@ function render() {
   $("tip").textContent = [
     "Check both the color and shape before tapping.",
     "Scan the board carefully; lookalikes are distractions.",
-    "Use a steady scan pattern and prioritize accuracy."
+    "Use a steady scan pattern and prioritize accuracy.",
+    "On the crowded cavern boards, scan in a consistent pattern.",
+    "At the summit, accuracy matters more than rushing."
   ][wi];
 
   if(!active) {
