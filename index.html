@@ -838,6 +838,7 @@ const supabaseClient = window.supabase.createClient(
 
 let currentUser = null;
 let currentUsername = null;
+let authStateEventReceived = false;
 let campaignProgressUserId = null;
 let campaignProgressLoadPromise = null;
 let campaignProgressSaveTimer = null;
@@ -1022,6 +1023,10 @@ async function checkSession() {
     console.error(error.message);
     return;
   }
+
+  // The auth listener is authoritative. Avoid letting this startup
+  // getSession() result overwrite a newer INITIAL_SESSION / SIGNED_IN event.
+  if (authStateEventReceived) return;
 
   currentUser = data.session?.user || null;
   currentUsername = null;
@@ -1418,6 +1423,7 @@ $("logoutBtn").onclick = async () => {
 
 supabaseClient.auth.onAuthStateChange((_event, session) => {
 
+  authStateEventReceived = true;
   currentUser = session?.user || null;
   currentUsername = null;
   if (!currentUser) {
