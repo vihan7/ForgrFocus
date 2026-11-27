@@ -899,6 +899,7 @@ function updateAccountUI() {
     $("showAuth").hidden = true;
     $("logoutBtn").hidden = false;
     $("viewLeaderboard").hidden = false;
+    authPanel.classList.remove("show");
 
     hideAuth();
 
@@ -912,6 +913,7 @@ function updateAccountUI() {
     $("showAuth").hidden = false;
     $("logoutBtn").hidden = true;
     $("viewLeaderboard").hidden = true;
+    authPanel.classList.remove("show");
   }
 
   if (typeof render === "function") render();
@@ -1354,9 +1356,18 @@ $("logoutBtn").onclick = async () => {
 
   currentUser = null;
   currentUsername = null;
+  lazarMode = false;
+  lazarVerified = false;
+  sessionStorage.removeItem(LAZAR_TOKEN_KEY);
+  $("lazarAnswerInput").value = "";
+  $("googleUsernameChoice").value = "";
+  $("authPanel").classList.remove("show");
 
+  if (typeof window.focusForgeResetSessionOnLogout === "function") {
+    window.focusForgeResetSessionOnLogout();
+  }
   updateAccountUI();
-  showAuth("You have logged out.");
+  authMessage.textContent = "You have logged out. Your saved campaign progress is preserved.";
 };
 
 /* =========================================
@@ -1368,6 +1379,12 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
   currentUser = session?.user || null;
   currentUsername = null;
 
+  if (!currentUser && typeof window.focusForgeResetSessionOnLogout === "function") {
+    lazarMode = false;
+    lazarVerified = false;
+    sessionStorage.removeItem(LAZAR_TOKEN_KEY);
+    window.focusForgeResetSessionOnLogout();
+  }
   updateAccountUI();
 
   if (currentUser) {
@@ -1839,6 +1856,21 @@ function stop() {
   won=false;
 
 }
+
+window.focusForgeResetSessionOnLogout = () => {
+  stop();
+  exitMissionMode();
+  $("overlay").classList.remove("show");
+  window.focusForgeRoomWaitingForResults = false;
+  window.focusForgeRoomResultsActive = false;
+  $("start").disabled = false;
+  $("continue").disabled = false;
+  $("continue").textContent = "Continue";
+  $("close").hidden = false;
+  $("status").className = "status";
+  $("status").textContent = "Choose a level and start your mission.";
+  render();
+};
 
 /* =========================================
    DRAW WORLDS
