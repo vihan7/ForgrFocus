@@ -2340,8 +2340,7 @@ function choose(index,button) {
   } else {
 
     score=Math.max(0,(Number.isFinite(Number(score)) ? Number(score) : 0)-50);
-    if (Number.isFinite(Number(sharedLevelDeadline))) {
-      const wrongPickPenalty = Number.isFinite(Number(level[6])) ? Math.max(0, Number(level[6])) : 2;
+    const wrongPickPenalty = Number.isFinite(Number(level[6])) ? Math.max(0, Number(level[6])) : 2;
     if (Number.isFinite(Number(sharedLevelDeadline))) {
       sharedLevelDeadline = Math.max(Date.now(), Number(sharedLevelDeadline) - wrongPickPenalty * 1000);
       timeLeft = Math.max(0, Math.ceil((sharedLevelDeadline - Date.now()) / 1000));
