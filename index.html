@@ -1011,32 +1011,11 @@ async function loadCurrentUsername(user) {
   }
 }
 /* =========================================
-   CHECK SESSION
+   SESSION INITIALIZATION
 ========================================= */
 
-async function checkSession() {
-
-  const { data, error } =
-    await supabaseClient.auth.getSession();
-
-  if (error) {
-    console.error(error.message);
-    return;
-  }
-
-  // The auth listener is authoritative. Avoid letting this startup
-  // getSession() result overwrite a newer INITIAL_SESSION / SIGNED_IN event.
-  if (authStateEventReceived) return;
-
-  currentUser = data.session?.user || null;
-  currentUsername = null;
-
-  updateAccountUI();
-
-  if (currentUser) {
-    await loadCurrentUsername(currentUser);
-  }
-}
+// Supabase emits INITIAL_SESSION through the auth-state listener above.
+// Avoid a second getSession() path that can race and overwrite currentUser.
 
 /* =========================================
    AUTH BUTTONS
@@ -3099,7 +3078,6 @@ render();
   });
 })();
 
-checkSession();
 
 </script>
 
