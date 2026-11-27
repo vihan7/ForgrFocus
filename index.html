@@ -1818,12 +1818,17 @@ function mergeCampaignProgress(localProgress, cloudProgress) {
   const local = localProgress && typeof localProgress === "object" ? localProgress : {};
   const cloud = cloudProgress && typeof cloudProgress === "object" ? cloudProgress : {};
   const merged = {
-    cleared: { ...(local.cleared || {}), ...(cloud.cleared || {}) },
+    cleared: {},
     stars: {},
     best: Math.max(Number(local.best) || 0, Number(cloud.best) || 0),
     xp: Math.max(Number(local.xp) || 0, Number(cloud.xp) || 0),
     xpLevels: { ...(local.xpLevels || {}), ...(cloud.xpLevels || {}) }
   };
+
+  // Completion is permanent in the merge: true on either source wins.
+  Object.keys({ ...(local.cleared || {}), ...(cloud.cleared || {}) }).forEach(levelKey => {
+    merged.cleared[levelKey] = !!local.cleared?.[levelKey] || !!cloud.cleared?.[levelKey];
+  });
 
   // A cleared level stays cleared, and the highest star result wins.
   Object.keys({ ...(local.stars || {}), ...(cloud.stars || {}) }).forEach(levelKey => {
