@@ -1771,6 +1771,32 @@ const worlds = [
     ["Cosmic Trial","High challenge, limited time.",21,20,8],
     ["Focus Legend","The final campaign challenge!",20,20,8]
   ]
+},
+{
+  name:"Crystal Caverns",
+  icon:"💎",
+  desc:"Coming soon · Locked",
+  locked:true,
+  levels:[
+    ["Crystal Entry","Coming soon.",20,20,8],
+    ["Shimmering Paths","Coming soon.",20,20,8],
+    ["Prism Puzzles","Coming soon.",20,20,8],
+    ["Hidden Geodes","Coming soon.",20,20,8],
+    ["Cavern Champion","Coming soon.",20,20,8]
+  ]
+},
+{
+  name:"Neon Summit",
+  icon:"🌌",
+  desc:"Coming soon · Locked",
+  locked:true,
+  levels:[
+    ["Neon Approach","Coming soon.",20,20,8],
+    ["Signal Storm","Coming soon.",20,20,8],
+    ["Light Trails","Coming soon.",20,20,8],
+    ["Summit Shift","Coming soon.",20,20,8],
+    ["Peak Focus","Coming soon.",20,20,8]
+  ]
 }
 ];
 
@@ -1838,8 +1864,9 @@ let wi=
 
 const cleared = (w,l) => !!save.cleared[key(w,l)];
 
+// Worlds 4 and 5 are visible placeholders and remain hard-locked for now.
 const worldProgressUnlocked = w =>
-  w===0 || cleared(w-1,worlds[w-1].levels.length-1);
+  w >= 0 && w < 3 && (w===0 || cleared(w-1,worlds[w-1].levels.length-1));
 
 const unlocked = (w,l) =>
   w===0 && l===0 ? true :
@@ -2081,11 +2108,11 @@ function drawWorlds() {
       (currentUser && world.levels.every((_,level)=>cleared(index,level))
         ? " complete" : "");
 
-    button.disabled = !worldProgressUnlocked(index);
+    button.disabled = !!world.locked || !worldProgressUnlocked(index);
 
     button.innerHTML = `
       <span class="emoji">${world.icon}</span>
-      <strong>${world.name}</strong>
+      <strong>${world.locked ? "🔒 " : ""}${world.name}</strong>
       <small>${world.desc}</small>
     `;
 
