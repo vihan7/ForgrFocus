@@ -975,13 +975,16 @@ async function loadCurrentUsername(user) {
       null;
   }
 
-  // Load this account's campaign before refreshing the signed-in UI.
-  await loadCampaignProgress(user);
-  if (!currentUser || currentUser.id !== user.id) return;
+  // Detect Google sign-ins from both Supabase metadata and identity records.
+  const isGoogleUser =
+    user.app_metadata?.provider === "google" ||
+    user.app_metadata?.providers?.includes("google") ||
+    user.identities?.some(identity => identity.provider === "google");
+  const needsGoogleUsername =
+    isGoogleUser && (!currentUsername || /^Player_/i.test(currentUsername));
 
-  updateAccountUI();
-  const isGoogleUser = user.app_metadata?.provider === "google" || user.app_metadata?.providers?.includes("google");
-  if (isGoogleUser && (!currentUsername || /^Player_/i.test(currentUsername))) {
+  // Show username setup immediately; campaign loading must not delay the prompt.
+  if (needsGoogleUsername) {
     $("googleUsernameSetup").hidden = false;
     $("googleBtn").hidden = true;
     $("lazarModeBtn").hidden = true;
@@ -1002,6 +1005,14 @@ async function loadCurrentUsername(user) {
     $("signupBtn").hidden = false;
     $("loginBtn").hidden = false;
     $("signupHelp").hidden = false;
+  }
+
+  await loadCampaignProgress(user);
+  if (!currentUser || currentUser.id !== user.id) return;
+  updateAccountUI();
+  if (needsGoogleUsername) {
+    $("googleUsernameSetup").hidden = false;
+    showAuth("Choose a username to finish setting up your Google account.");
   }
 }
 /* =========================================
